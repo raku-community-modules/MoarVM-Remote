@@ -253,6 +253,12 @@ class MoarVM::Remote {
         })
     }
 
+    method context-handle(Int $thread, Int $frame) {
+        self!send-request(MT_ContextHandle, :$thread, :$frame).then({
+            .result<handle>;
+        })
+    }
+
     method dump(Int $thread) {
         self!send-request(MT_ThreadStackTraceRequest, :$thread).then({
             .result<frames>;
