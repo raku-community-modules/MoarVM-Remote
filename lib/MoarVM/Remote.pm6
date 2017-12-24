@@ -258,6 +258,22 @@ class MoarVM::Remote {
             .result<handle>;
         })
     }
+    method caller-context-handle(Int $handle) {
+        self!send-request(MT_CallerContextRequest, :$handle).then({
+            .result<handle>;
+        })
+    }
+    method coderef-handle(Int $thread, Int $frame) {
+        self!send-request(MT_CodeObjectHandle, :$thread, :$frame).then({
+            .result<handle>;
+        })
+    }
+
+    method lexicals(Int $handle) {
+        self!send-request(MT_ContextLexicalsRequest, :$handle).then({
+            .result<lexicals>;
+        })
+    }
 
     method dump(Int $thread) {
         self!send-request(MT_ThreadStackTraceRequest, :$thread).then({
