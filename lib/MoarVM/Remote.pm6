@@ -149,6 +149,7 @@ class MoarVM::Remote {
                                 }
                             }
                         } else {
+                            say $_.list.fmt("%x", " ");
                             emit $_;
                         }
                     }
@@ -263,6 +264,11 @@ class MoarVM::Remote {
             .result<handle>;
         })
     }
+    method outer-context-handle(Int $handle) {
+        self!send-request(MT_OuterContextRequest, :$handle).then({
+            .result<handle>;
+        })
+    }
     method coderef-handle(Int $thread, Int $frame) {
         self!send-request(MT_CodeObjectHandle, :$thread, :$frame).then({
             .result<handle>;
@@ -272,6 +278,12 @@ class MoarVM::Remote {
     method lexicals(Int $handle) {
         self!send-request(MT_ContextLexicalsRequest, :$handle).then({
             .result<lexicals>;
+        })
+    }
+
+    method attributes(Int $handle) {
+        self!send-request(MT_ObjectAttributesRequest, :$handle).then({
+            .result<attributes>;
         })
     }
 
