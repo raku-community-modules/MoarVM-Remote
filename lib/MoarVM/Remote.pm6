@@ -105,6 +105,8 @@ class MoarVM::Remote {
 
     has Supply $!worker-events;
 
+    has Version $.remote-version;
+
     submethod TWEAK(:$!sock, :$!worker-events) {
         $!queue-lock .= new;
         $!id-lock .= new;
@@ -119,7 +121,7 @@ class MoarVM::Remote {
                 if (my $major = recv16be($buffer)) != 1 || (my $minor = recv16be($buffer)) != 1 {
                     die X::MoarVM::Remote::Version.new(:versions($major, $minor));
                 }
-                return True;
+                return Version.new("$major.$minor");
             }
         }
         False
@@ -129,6 +131,7 @@ class MoarVM::Remote {
         start {
             my $sockprom = Promise.new;
             my $handshakeprom = Promise.new;
+            my $remote-version = Promise.new;
 
             my $without-handshake = supply {
                 whenever IO::Socket::Async.connect("localhost", $port) -> $sock {
@@ -140,8 +143,9 @@ class MoarVM::Remote {
                     whenever $sock.Supply(:bin) {
                         if $handshake-state == 0 {
                             $buffer.append($_);
-                            if take-greeting($buffer) {
+                            if take-greeting($buffer) -> $version {
                                 await $sock.write("MOARVM-REMOTE-CLIENT-OK\0".encode("ascii"));
+                                $remote-version.keep($version);
                                 $handshake-state = 1;
                                 $handshakeprom.keep();
                                 if $buffer {
@@ -158,7 +162,7 @@ class MoarVM::Remote {
 
             my $worker-events = Data::MessagePack::StreamingUnpacker.new(source => $without-handshake).Supply;
 
-            my $res = self.bless(sock => (await $sockprom), :$worker-events);
+            my $res = self.bless(sock => (await $sockprom), :$worker-events, remote-version => await $remote-version);
             await $handshakeprom;
             $res
         }
