@@ -170,7 +170,6 @@ class MoarVM::Remote {
 
     method !worker {
         $!worker //= start {
-            note "starting worker";
             react whenever $!worker-events -> $message {
                 my $task;
                 $!queue-lock.protect: {
