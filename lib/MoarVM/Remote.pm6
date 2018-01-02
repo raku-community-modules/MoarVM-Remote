@@ -129,42 +129,56 @@ class MoarVM::Remote {
 
     method connect(MoarVM::Remote:U: Int $port) {
         start {
-            my $sockprom = Promise.new;
-            my $handshakeprom = Promise.new;
-            my $remote-version = Promise.new;
+            my @sleep-intervals = 0.5, 1, 1, 2, 4, Failure.new("connection retries exhausted");
+            my $result;
+            loop {
+                my $sockprom = Promise.new;
+                my $handshakeprom = Promise.new;
+                my $remote-version = Promise.new;
 
-            my $without-handshake = supply {
-                whenever IO::Socket::Async.connect("localhost", $port) -> $sock {
-                    $sockprom.keep($sock);
+                my $without-handshake = supply {
+                    whenever IO::Socket::Async.connect("localhost", $port) -> $sock {
+                        $sockprom.keep($sock);
 
-                    my $handshake-state = 0;
-                    my $buffer = buf8.new;
+                        my $handshake-state = 0;
+                        my $buffer = buf8.new;
 
-                    whenever $sock.Supply(:bin) {
-                        if $handshake-state == 0 {
-                            $buffer.append($_);
-                            if take-greeting($buffer) -> $version {
-                                await $sock.write("MOARVM-REMOTE-CLIENT-OK\0".encode("ascii"));
-                                $remote-version.keep($version);
-                                $handshake-state = 1;
-                                $handshakeprom.keep();
-                                if $buffer {
-                                    die X::MoarVM::Remote::ProtocolError.new(attempted => "receiving the greeting - and only the greeting");
+                        whenever $sock.Supply(:bin) {
+                            if $handshake-state == 0 {
+                                $buffer.append($_);
+                                if take-greeting($buffer) -> $version {
+                                    await $sock.write("MOARVM-REMOTE-CLIENT-OK\0".encode("ascii"));
+                                    $remote-version.keep($version);
+                                    $handshake-state = 1;
+                                    $handshakeprom.keep();
+                                    if $buffer {
+                                        die X::MoarVM::Remote::ProtocolError.new(attempted => "receiving the greeting - and only the greeting");
+                                    }
                                 }
+                            } else {
+                                emit $_;
                             }
-                        } else {
-                            say $_.list.fmt("%x", " ");
-                            emit $_;
                         }
                     }
                 }
+
+                my $without-handshake-shared = $without-handshake.share;
+
+                $without-handshake-shared.tap({;}, quit => { $sockprom.break($_) });
+
+                my $worker-events = Data::MessagePack::StreamingUnpacker.new(source => $without-handshake-shared).Supply;
+
+                my $res = self.bless(sock => (await $sockprom), :$worker-events, remote-version => await $remote-version);
+                await $handshakeprom;
+                $result = $res;
+                last;
+                CATCH {
+                    when .message.contains("connection refused") {
+                        sleep @sleep-intervals.shift;
+                    }
+                }
             }
-
-            my $worker-events = Data::MessagePack::StreamingUnpacker.new(source => $without-handshake).Supply;
-
-            my $res = self.bless(sock => (await $sockprom), :$worker-events, remote-version => await $remote-version);
-            await $handshakeprom;
-            $res
+            $result;
         }
     }
 
