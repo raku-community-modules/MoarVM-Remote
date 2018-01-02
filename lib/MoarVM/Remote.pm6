@@ -206,26 +206,23 @@ class MoarVM::Remote {
 
     method !send-request($type, *%data) {
         my $id = self!get-request-id;
-        note "will have id $id, type $type";
 
         my %data-to-send = %data, :$id, :$type;
 
         my $packed = Data::MessagePack::pack(%data-to-send);
 
-        say $packed;
+        note $packed;
 
-        note "sending request";
-        $!sock.write($packed).then({
-            if $_.status === Kept {
-                my $prom = Promise.new;
-                $!queue-lock.protect: {
-                    @!request-promises.push($id => $prom.vow);
-                }
-                note "queued";
-                await $prom;
-            } else {
-                $_.result.sink;
+        start {
+            my $prom = Promise.new;
+            $!queue-lock.protect: {
+                @!request-promises.push($id => $prom.vow);
             }
+
+            await $!sock.write($packed);
+            await $prom;
+        }
+    }
 
     multi method is-execution-suspended() {
         self!send-request(MT_IsExecutionSuspendedRequest).then({
