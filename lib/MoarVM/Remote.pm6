@@ -107,6 +107,10 @@ class MoarVM::Remote {
 
     has Version $.remote-version;
 
+    has Supplier $!events-supplier = Supplier::Preserving.new;
+
+    has Supply $.events = $!events-supplier.Supply;
+
     submethod TWEAK(:$!sock, :$!worker-events) {
         self!start-worker;
     }
@@ -189,6 +193,7 @@ class MoarVM::Remote {
                 }
                 without $task {
                     note "Got notification from moarvm: $message.perl()";
+                    $!events-supplier.emit($message);
                     next;
                 }
                 note "got reply from moarvm: $message.perl()";
@@ -202,6 +207,10 @@ class MoarVM::Remote {
                     note "keeping task";
                     $task.keep($message)
                 }
+                LAST $!events-supplier.done();
+            }
+            QUIT {
+                $!events-supplier.quit($_);
             }
         }
     }
