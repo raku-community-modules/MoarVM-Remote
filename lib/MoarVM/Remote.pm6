@@ -201,7 +201,6 @@ class MoarVM::Remote {
                     note "keeping task";
                     $task.keep($message)
                 }
-                await $task.promise;
             }
         }
     }
