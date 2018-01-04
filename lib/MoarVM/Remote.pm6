@@ -198,13 +198,10 @@ class MoarVM::Remote {
                 }
                 note "got reply from moarvm: $message.perl()";
                 if $message<type> == 0 {
-                    note "breaking task";
                     $task.break(X::MoarVM::Remote::MessageType.new(type => $message<type>));
                 } elsif $message<type> == 1 {
-                    note "breaking task";
                     $task.break(X::MoarVM::Remote::MessageProcessing.new(reason => $message<reason>));
                 } else {
-                    note "keeping task";
                     $task.keep($message)
                 }
                 LAST $!events-supplier.done();
