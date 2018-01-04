@@ -108,6 +108,7 @@ class MoarVM::Remote {
     has Version $.remote-version;
 
     submethod TWEAK(:$!sock, :$!worker-events) {
+        self!start-worker;
     }
 
     sub take-greeting(buf8 $buffer) {
@@ -178,9 +179,9 @@ class MoarVM::Remote {
         }
     }
 
-    method !worker {
-        $!worker //= start {
-            react whenever $!worker-events -> $message {
+    method !start-worker {
+        $!worker //= start react {
+            whenever $!worker-events -> $message {
                 my $task;
                 $!queue-lock.protect: {
                     $task = @!request-promises.grep(*.key == $message<id>).head.value;
@@ -214,6 +215,13 @@ class MoarVM::Remote {
     }
 
     method !send-request($type, *%data) {
+        die "Cannot send request; Worker has finished running." if $!worker.status === PromiseStatus::Kept;
+
+        if $!worker.status === PromiseStatus::Broken {
+            note "Cannot send request; Worker has crashed!";
+            $!worker.result.self;
+        }
+
         my $id = self!get-request-id;
 
         my %data-to-send = %data, :$id, :$type;
