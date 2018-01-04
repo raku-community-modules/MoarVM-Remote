@@ -47,7 +47,8 @@ class DebugTarget {
                         .result.self
                     }
                     $supplier.emit("event" => $_);
-                    done;
+                    $supplier.done;
+                    last;
                 }
 
                 whenever $proc.ready {
