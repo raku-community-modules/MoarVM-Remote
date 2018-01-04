@@ -97,21 +97,17 @@ class MoarVM::Remote {
     has $!sock;
     has $!worker;
 
-    has Lock $!queue-lock;
+    has Lock $!queue-lock .= new;
     has @!request-promises;
 
-    has Lock $!id-lock;
-    has int32 $!req_id;
+    has Lock $!id-lock .= new;
+    has int32 $!req_id = 1;
 
     has Supply $!worker-events;
 
     has Version $.remote-version;
 
     submethod TWEAK(:$!sock, :$!worker-events) {
-        $!queue-lock .= new;
-        $!id-lock .= new;
-        $!req_id = 1;
-        self!worker;
     }
 
     sub take-greeting(buf8 $buffer) {
