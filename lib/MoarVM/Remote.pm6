@@ -119,7 +119,7 @@ class MoarVM::Remote {
         if $buffer.elems >= "MOARVM-REMOTE-DEBUG\0".chars + 4 {
             if $buffer.subbuf(0, "MOARVM-REMOTE-DEBUG\0".chars).list eqv  "MOARVM-REMOTE-DEBUG\0".encode("ascii").list {
                 $buffer.splice(0, "MOARVM-REMOTE-DEBUG\0".chars);
-                if (my $major = recv16be($buffer)) != 1 || (my $minor = recv16be($buffer)) != 1 {
+                if (my $major = recv16be($buffer)) != 1 || (my $minor = recv16be($buffer)) != 0 {
                     die X::MoarVM::Remote::Version.new(:versions($major, $minor));
                 }
                 return Version.new("$major.$minor");
