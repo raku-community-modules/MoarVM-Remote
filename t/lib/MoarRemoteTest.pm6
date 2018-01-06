@@ -6,7 +6,7 @@ use MoarVM::Remote;
 use nqp;
 
 class DebugTarget {
-    method run($code, &checker, :$start-suspended) {
+    method run($code, &checker, :$start-suspended, :$writable) {
         my $prefix = nqp::backendconfig<prefix>;
 
         my $moarbinpath = %*ENV<DEBUGGABLE_MOAR_PATH>.?IO // $prefix.IO.add("bin/moar");
@@ -25,7 +25,7 @@ class DebugTarget {
             my $try-sock = IO::Socket::INET.new(:localhost("localhost"), :localport($port), :listen(True));
             $try-sock.close;
 
-            my $proc = Proc::Async.new(|@pre-command, "--debug-port=$port", |("--debug-suspend" if $start-suspended), |@post-command);
+            my $proc = Proc::Async.new(|@pre-command, "--debug-port=$port", |("--debug-suspend" if $start-suspended), |@post-command, |%("w" => True if $writable));
 
             react {
                 whenever $proc.stderr.lines {
@@ -55,6 +55,12 @@ class DebugTarget {
                     whenever MoarVM::Remote.connect($port) -> $client {
                         whenever start { checker($client, $supplier.Supply, $proc) } {
                             $proc.kill;
+                        }
+                        QUIT {
+                            note "Checker failed to run";
+                            say $_;
+                            $proc.kill;
+                            die $_;
                         }
                     }
                 }
