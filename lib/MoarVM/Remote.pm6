@@ -186,6 +186,9 @@ class MoarVM::Remote {
                     $task = @!request-promises.grep(*.key == $message<id>).head.value;
                     @!request-promises .= grep(*.key != $message<id>) with $task;
                 }
+                if $message<type>:exists {
+                    $message<type> = MessageType($message<type>);
+                }
                 without $task {
                     note "Got notification from moarvm: $message.perl()";
                     $!events-supplier.emit($message);
