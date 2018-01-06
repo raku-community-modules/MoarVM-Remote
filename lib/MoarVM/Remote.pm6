@@ -1,7 +1,7 @@
 use Data::MessagePack;
 use Data::MessagePack::StreamingUnpacker;
 
-enum MessageType <
+our enum MessageType is export <
     MT_MessageTypeNotUnderstood
     MT_ErrorProcessingMessage
     MT_OperationSuccessful
@@ -42,11 +42,6 @@ enum MessageType <
     MT_InvokeResult
     MT_UnhandledException
 >;
-
-constant REQ_SUSPEND    = 1;
-constant REQ_RESUME     = 2;
-constant REQ_THREADLIST = 3;
-constant REQ_DUMP       = 9;
 
 class X::MoarVM::Remote::ProtocolError is Exception {
     has $.attempted;
