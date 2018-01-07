@@ -10,13 +10,13 @@ plan 4;
 
 Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
 
-DebugTarget.run("nqp::sleep(1)", :start-suspended,
+run_debugtarget("nqp::sleep(1)", :start-suspended,
     -> $client, $supply, $proc {
         is-deeply (await $client.is-execution-suspended()), True, "start-suspended starts program suspended";
     });
 
 note "running the other thing";
-DebugTarget.run("say('alive'); nqp::sleep(5)",
+run_debugtarget("say('alive'); nqp::sleep(5)",
     -> $client, $supply, $proc {
         my $got-alive = False;
         my $got-execution = Bool;
