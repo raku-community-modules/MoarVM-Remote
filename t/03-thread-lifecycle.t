@@ -7,7 +7,7 @@ use Test;
 use MoarVM::Remote;
 use MoarRemoteTest;
 
-plan 10;
+plan 12;
 
 my $testsubject = Q:to/NQP/;
     # allow input
@@ -66,39 +66,38 @@ Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this
 
 DebugTarget.run($testsubject, :writable,
     -> $client, $supply, $proc {
-        my $reactions-supply =
-            $client.events
-                .grep({ .<type> == any(MT_ThreadStarted, MT_ThreadEnded) })
-            .merge($supply.grep({ .key eq "stdout" }));
+        my $outputs =
+            $supply.grep({ .key eq "stdout" }).map(*.value).Channel;
 
-        $reactions-supply.tap({ say "reaction got $_.perl()" });
-        my $reactions = $reactions-supply.Channel;
+        my $reactions = $client.events
+                .grep({ .<type> == any(MT_ThreadStarted, MT_ThreadEnded) })
+                .Channel;
 
         await $proc.print("L0");
-        cmp-ok $reactions.receive, "~~", "stdout" => "OK L0", "lock created ok";
+        is-deeply $outputs.receive, "OK L0", "lock created ok";
         await $proc.print("T0");
-        is-deeply $reactions.receive, "stdout" => "OK T0", "thread created ok";
+        is-deeply $outputs.receive, "OK T0", "thread created ok";
         sleep 0.1;
         is-deeply $reactions.poll, Nil, "thread creation message not sent yet";
         await $proc.print("R0");
-        my @results = $reactions.receive, $reactions.receive;
-        cmp-ok @results.grep({ $_ ~~ Pair and .key eq "stdout" }).head, "~~", "stdout" => "OK R0", "ran thread 0";
-        cmp-ok @results.grep({ $_ ~~ Hash and .<type> === MT_ThreadStarted }).head, "~~",
+        is-deeply $outputs.receive, "OK R0", "ran thread 0";
+        cmp-ok $reactions.receive, "~~",
             all([type => *, id => *, thread => *, app_lifetime => 0]),
             "running thread sends a thread started message";
         sleep 0.1;
         is-deeply $reactions.poll, Nil, "no more messages";
+        is-deeply $outputs.poll, Nil, "no more outputs";
 
         await $proc.print("U0");
-        @results = $reactions.receive, $reactions.receive;
-        cmp-ok @results.grep({ $_ ~~ Pair and .key eq "stdout" }).head, "~~", "stdout" => "OK U0", "unlocked thread 0";
-        cmp-ok @results.grep({ $_ ~~ Hash and .<type> === MT_ThreadEnded }).head, "~~", all([type => *, id => *, thread => *]),
+        is-deeply $outputs.receive, "OK U0", "unlocked thread 0";
+        cmp-ok $reactions.receive, "~~", all([type => *, id => *, thread => *]),
             "finishing a thread's code sends a Thread Ended message";
         sleep 0.1;
         is-deeply $reactions.poll, Nil, "no more messages";
+        is-deeply $outputs.poll, Nil, "no more outputs";
 
         await $proc.print("J0");
-        cmp-ok $reactions.receive, "~~", "stdout" => "OK J0", "joined thread 0";
+        is-deeply $outputs.receive, "OK J0", "joined thread 0";
 
         await $proc.print("Q9");
     });
