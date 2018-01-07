@@ -89,11 +89,13 @@ sub run_testplan(@plan, $description = "test plan") {
                 my $to-send = 
                     (%command_to_letter{$command} // fail "command type not understood: $_.value()")
                     ~ $arg;
-                await $proc.print: $to-send;
+                lives-ok {
+                    await $proc.print: $to-send;
+                }, "sent command $command to process";
                 if $command ne "Quit" {
-                    is-deeply (await $outputs), "OK $to-send", "command $command executed";
+                    is-deeply (try await $outputs), "OK $to-send", "command $command executed";
                 } else {
-                    is-deeply (await $outputs), "OK...", "quit the program";
+                    is-deeply (try await $outputs), "OK...", "quit the program";
                 }
             }
             when .key eq "assert" {
@@ -111,18 +113,22 @@ sub run_testplan(@plan, $description = "test plan") {
             }
             when .key eq "receive" {
                 die unless .value ~~ Positional;
-                my $received = await $reactions;
-                for .value {
-                    if .value.VAR.^name eq "Scalar" {
-                        if .value.defined {
-                            cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
+                subtest {
+                    my $received = try await $reactions;
+                    cmp-ok $received, "~~", Hash, "an event successfully received";
+                    for .value {
+                        if .value.VAR.^name eq "Scalar" && not .value.defined {
+                            lives-ok {
+                                .value = $received{.key};
+                            }, "stored result from key $_.key()";
                         } else {
-                            .value = $received{.key};
+                            cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
                         }
-                    } else {
-                        cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
                     }
-                }
+                }, "receive an event";
+            }
+            default {
+                die "unknown command in test plan: $_.perl()";
             }
         }
     };
