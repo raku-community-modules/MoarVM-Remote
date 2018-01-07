@@ -127,6 +127,28 @@ sub run_testplan(@plan, $description = "test plan") {
                     }
                 }, "receive an event";
             }
+            when .key eq "send" {
+                my $commandname = .value.key.head;
+                my @params = .value.key.skip;
+
+                my $prom = $client."$commandname"(|@params);
+
+                given .value {
+                    if .value.VAR.^name eq "Scalar" && not .value.defined {
+                        lives-ok {
+                            .value = $prom;
+                        }, "stashed away result promise for later";
+                    } else {
+                        cmp-ok (try await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
+                    }
+                }
+            }
+            when .key eq "await" {
+                my $prom = .value.key;
+                my Mu $checker = .value.value;
+
+                cmp-ok (try await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
+            }
             default {
                 die "unknown command in test plan: $_.perl()";
             }
