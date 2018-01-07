@@ -155,12 +155,17 @@ class MoarVM::Remote {
                                 emit $_;
                             }
                         }
+                        QUIT {
+                            try $handshakeprom.break($_)
+                        }
                     }
                 }
 
                 my $without-handshake-shared = $without-handshake.share;
 
-                $without-handshake-shared.tap({;}, quit => { $sockprom.break($_) });
+                $without-handshake-shared.tap({;}, quit => {
+                    try $sockprom.break($_)
+                });
 
                 my $worker-events = Data::MessagePack::StreamingUnpacker.new(source => $without-handshake-shared).Supply;
 
