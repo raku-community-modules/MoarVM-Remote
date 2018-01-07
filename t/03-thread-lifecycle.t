@@ -7,7 +7,7 @@ use Test;
 use MoarVM::Remote;
 use MoarRemoteTest;
 
-plan 12;
+plan 1;
 
 my $testsubject = Q:to/NQP/;
     # allow input
@@ -62,9 +62,18 @@ my $testsubject = Q:to/NQP/;
     say("OK...");
     NQP
 
-Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
+my %command_to_letter =
+    CreateThread => "T",
+    RunThread => "R",
+    CreateLock => "L",
+    UnlockThread => "U",
+    JoinThread => "J",
+    Quit => "Q";
 
-DebugTarget.run($testsubject, :writable,
+sub run_testplan(@plan, $description = "test plan") {
+    subtest {
+
+    DebugTarget.run: $testsubject, :writable,
     -> $client, $supply, $proc {
         my $outputs =
             $supply.grep({ .key eq "stdout" }).map(*.value).Channel;
@@ -73,32 +82,76 @@ DebugTarget.run($testsubject, :writable,
                 .grep({ .<type> == any(MT_ThreadStarted, MT_ThreadEnded) })
                 .Channel;
 
-        await $proc.print("L0");
-        is-deeply $outputs.receive, "OK L0", "lock created ok";
-        await $proc.print("T0");
-        is-deeply $outputs.receive, "OK T0", "thread created ok";
-        sleep 0.1;
-        is-deeply $reactions.poll, Nil, "thread creation message not sent yet";
-        await $proc.print("R0");
-        is-deeply $outputs.receive, "OK R0", "ran thread 0";
-        cmp-ok $reactions.receive, "~~",
-            all([type => *, id => *, thread => *, app_lifetime => 0]),
-            "running thread sends a thread started message";
-        sleep 0.1;
-        is-deeply $reactions.poll, Nil, "no more messages";
-        is-deeply $outputs.poll, Nil, "no more outputs";
+        for @plan {
+            when .key eq "command" {
+                my $command = .value ~~ Pair ?? .value.key !! .value;
+                my $arg = .value ~~ Pair ?? .value.value !! 0;
+                my $to-send = 
+                    (%command_to_letter{$command} // fail "command type not understood: $_.value()")
+                    ~ $arg;
+                await $proc.print: $to-send;
+                if $command ne "Quit" {
+                    is-deeply (await $outputs), "OK $to-send", "command $command executed";
+                } else {
+                    is-deeply (await $outputs), "OK...", "quit the program";
+                }
+            }
+            when .key eq "assert" {
+                if .value eq "NoEvent" {
+                    await Promise.in(0.1);
+                    is-deeply $reactions.poll, Nil, "no events received";
+                }
+                elsif .value eq "NoOutput" {
+                    await Promise.in(0.1);
+                    is-deeply $outputs.poll, Nil, "no outputs received";
+                }
+                else {
+                    die "Do not understand this assertion: $_.value()";
+                }
+            }
+            when .key eq "receive" {
+                die unless .value ~~ Positional;
+                my $received = await $reactions;
+                for .value {
+                    if .value.VAR.^name eq "Scalar" {
+                        if .value.defined {
+                            cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
+                        } else {
+                            .value = $received{.key};
+                        }
+                    } else {
+                        cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
+                    }
+                }
+            }
+        }
+    };
 
-        await $proc.print("U0");
-        is-deeply $outputs.receive, "OK U0", "unlocked thread 0";
-        cmp-ok $reactions.receive, "~~", all([type => *, id => *, thread => *]),
-            "finishing a thread's code sends a Thread Ended message";
-        sleep 0.1;
-        is-deeply $reactions.poll, Nil, "no more messages";
-        is-deeply $outputs.poll, Nil, "no more outputs";
+    }, $description;
+}
 
-        await $proc.print("J0");
-        is-deeply $outputs.receive, "OK J0", "joined thread 0";
+Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
 
-        await $proc.print("Q9");
-    });
-
+{
+my $T0-id;
+run_testplan [
+    command => CreateLock => 0,
+    command => CreateThread => 0,
+    assert  => "NoEvent",
+    command => RunThread => 0,
+    receive =>
+            [type => MT_ThreadStarted,
+             thread => $T0-id,
+             app_lifetime => 0],
+    assert  => "NoEvent",
+    assert  => "NoOutput",
+    command => UnlockThread => 0,
+    receive =>
+            [type => MT_ThreadEnded,
+             thread => $T0-id],
+    assert  => "NoEvent",
+    assert  => "NoOutput",
+    command => JoinThread => 0,
+    command => Quit => 0,
+]
+}
