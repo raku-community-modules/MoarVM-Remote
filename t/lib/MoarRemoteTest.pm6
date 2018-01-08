@@ -97,6 +97,7 @@ my $testsubject = Q:to/NQP/;
         say("OK R$lock_number");
         nqp::lock(nqp::atpos(@locks, $lock_number));
         say("OK U$lock_number");
+        nqp::sleep(0.3);
     }
 
     my @threads;
