@@ -77,9 +77,9 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
     }
 }
 
-my $testsubject = Q:to/NQP/;
+sub ALLOW-INPUT($code) is export { Q:to/NQP/ ~ $code }
     # allow input
-    my sub create_buf($type) {
+    sub create_buf($type) {
         my $buf := nqp::newtype(nqp::null(), 'VMArray');
         nqp::composetype($buf, nqp::hash('array', nqp::hash('type', $type)));
         nqp::setmethcache($buf, nqp::hash('new', method () {nqp::create($buf)}));
@@ -88,9 +88,17 @@ my $testsubject = Q:to/NQP/;
 
     my $buf8 := create_buf(uint8);
 
+    sub read($count) {
+        nqp::readfh(nqp::getstdin, $buf8.new, $count)
+    }
+    NQP
+
+sub ALLOW-LOCK($code) is export { Q:to/NQP/ ~ $code }
     # Let's have a lock
     class Lock is repr('ReentrantMutex') { }
+    NQP
 
+my $testsubject = ALLOW-INPUT ALLOW-LOCK Q:to/NQP/;
     my @locks;
 
     sub do_thread($lock_number) {
