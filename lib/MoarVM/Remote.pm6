@@ -265,7 +265,7 @@ class MoarVM::Remote {
 
     multi method suspend(Int $thread) {
         self!send-request(MT_SuspendOne, :$thread).then({
-            .result<type> == 3
+            .result<type> === MT_OperationSuccessful
         })
     }
     multi method resume(Int $thread) {
