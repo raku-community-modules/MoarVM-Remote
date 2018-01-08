@@ -259,7 +259,7 @@ class MoarVM::Remote {
 
     method threads-list {
         self!send-request(MT_ThreadListRequest).then({
-            .result<threads>;
+            .result<threads>.list;
         })
     }
 
@@ -308,19 +308,19 @@ class MoarVM::Remote {
 
     method lexicals(Int $handle) {
         self!send-request(MT_ContextLexicalsRequest, :$handle).then({
-            .result<lexicals>;
+            .result<lexicals>.list;
         })
     }
 
     method attributes(Int $handle) {
         self!send-request(MT_ObjectAttributesRequest, :$handle).then({
-            .result<attributes>;
+            .result<attributes>.list;
         })
     }
 
     method dump(Int $thread) {
         self!send-request(MT_ThreadStackTraceRequest, :$thread).then({
-            .result<frames>;
+            .result<frames>.list;
         })
     }
 }
