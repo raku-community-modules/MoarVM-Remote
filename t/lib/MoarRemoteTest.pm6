@@ -68,7 +68,7 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
 
         CATCH {
             next if .Str.contains("Address already in use");
-            if .Str.contains("connection refused") && $conn-refused-retries++ < 5 {
+            if .Str.contains("connection refused" | "Permission denied") && $conn-refused-retries++ < 5 {
                 sleep(0.1);
                 redo;
             }
