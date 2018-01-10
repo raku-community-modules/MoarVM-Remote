@@ -34,6 +34,10 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
                 when / "Unknown flag --debug-port=" / {
                     die "MoarVM binary at $moarbinpath doesn't understand debugger flags. Please set the environment variable DEBUGGABLE_MOAR_PATH to a moar binary that does."
                 }
+                when / "SORRY" / {
+                    die "Program could not be run: $_";
+                }
+                say "STDERR: " ~ $_ for $_.lines;
                 $supplier.emit("stderr" => $_);
             }
 
