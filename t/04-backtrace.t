@@ -45,6 +45,9 @@ subtest {
         sleep(0.1);
 
         $suspend-promise = $client.suspend(1);
+
+        sleep(0.1);
+
         await $proc.print("B");
         await $suspend-promise;
 
