@@ -151,7 +151,7 @@ my %command_to_letter =
     JoinThread => "J",
     Quit => "Q";
 
-sub run_testplan(@plan, $description = "test plan") is export {
+sub run_testplan(@plan is copy, $description = "test plan") is export {
     subtest {
 
     run_debugtarget $testsubject, :writable,
@@ -159,79 +159,117 @@ sub run_testplan(@plan, $description = "test plan") is export {
         my $outputs =
             $supply.grep({ .key eq "stdout" }).map(*.value).Channel;
 
+        my $testsubject-exited = $supply.grep({ .key eq "event" && .value ~~ Proc }).Promise;
+
         my $reactions = $client.events
                 .grep({ .<type> == any(MT_ThreadStarted, MT_ThreadEnded) })
                 .Channel;
 
-        for @plan {
-            when .key eq "command" {
-                my $command = .value ~~ Pair ?? .value.key !! .value;
-                my $arg = .value ~~ Pair ?? .value.value !! 0;
-                my $to-send = 
-                    (%command_to_letter{$command} // fail "command type not understood: $_.value()")
-                    ~ $arg;
-                lives-ok {
-                    await $proc.print: $to-send;
-                }, "sent command $command to process";
-                if $command ne "Quit" {
-                    is-deeply (try await $outputs), "OK $to-send", "command $command executed";
-                } else {
-                    is-deeply (try await $outputs), "OK...", "quit the program";
-                }
+        while @plan {
+            if $testsubject-exited.status === PromiseStatus::Kept {
+                ok False, "The test subject exited!";
+                last;
             }
-            when .key eq "assert" {
-                if .value eq "NoEvent" {
-                    await Promise.in(0.1);
-                    is-deeply $reactions.poll, Nil, "no events received";
+            given @plan.shift {
+                when Positional | Seq {
+                    note "positional or seq";
+                    @plan.prepend(@$_);
                 }
-                elsif .value eq "NoOutput" {
-                    await Promise.in(0.1);
-                    is-deeply $outputs.poll, Nil, "no outputs received";
-                }
-                else {
-                    die "Do not understand this assertion: $_.value()";
-                }
-            }
-            when .key eq "receive" {
-                die unless .value ~~ Positional;
-                subtest {
-                    my $received = try await $reactions;
-                    cmp-ok $received, "~~", Hash, "an event successfully received";
-                    for .value {
-                        if .value.VAR.^name eq "Scalar" && not .value.defined {
-                            lives-ok {
-                                .value = $received{.key};
-                            }, "stored result from key $_.key()";
+                when .key eq "command" {
+                    my $wants-await = True;
+                    my $wants-send  = True;
+                    if .value.key eq "async" {
+                        $_ = command => .value.value;
+                        $wants-await = False;
+                    }
+                    if .value.key eq "finish" {
+                        $_ = command => .value.value;
+                        $wants-send = False;
+                    }
+
+                    my $command = .value ~~ Pair ?? .value.key !! .value;
+                    my $arg = .value ~~ Pair ?? .value.value !! 0;
+                    my $to-send =
+                        (%command_to_letter{$command} // die "command type not understood: $_.value()")
+                        ~ $arg;
+                    if $wants-send {
+                        lives-ok {
+                            await $proc.print: $to-send;
+                        }, "sent command $command to process";
+                    }
+                    if $wants-await {
+                        if $command ne "Quit" {
+                            is-deeply (try await $outputs), "OK $to-send", "command $command executed";
                         } else {
-                            cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
+                            is-deeply (try await $outputs), "OK...", "quit the program";
                         }
                     }
-                }, "receive an event";
-            }
-            when .key eq "send" {
-                my $commandname = .value.key.head;
-                my @params = .value.key.skip;
-
-                my $prom = $client."$commandname"(|@params);
-
-                given .value {
-                    if .value.VAR.^name eq "Scalar" && not .value.defined {
-                        lives-ok {
-                            .value = $prom;
-                        }, "stashed away result promise for later";
-                    } else {
-                        cmp-ok (try await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
+                }
+                when .key eq "assert" {
+                    if .value eq "NoEvent" {
+                        await Promise.in(0.1);
+                        is-deeply $reactions.poll, Nil, "no events received";
+                    }
+                    elsif .value eq "NoOutput" {
+                        await Promise.in(0.1);
+                        is-deeply $outputs.poll, Nil, "no outputs received";
+                    }
+                    else {
+                        die "Do not understand this assertion: $_.value()";
                     }
                 }
-            }
-            when .key eq "await" {
-                my $prom = .value.key;
-                my Mu $checker = .value.value;
+                when .key eq "receive" {
+                    die unless .value ~~ Positional;
+                    subtest {
+                        my $received = try await $reactions;
+                        cmp-ok $received, "~~", Hash, "an event successfully received";
+                        for .value {
+                            if .value.VAR.^name eq "Scalar" && not .value.defined {
+                                lives-ok {
+                                    .value = $received{.key};
+                                }, "stored result from key $_.key()";
+                            } else {
+                                cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
+                            }
+                        }
+                    }, "receive an event";
+                }
+                when .key eq "send" {
+                    my $commandname = .value.key.head;
+                    my @params = .value.key.skip;
 
-                cmp-ok (try await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
-            }
-            default {
-                die "unknown command in test plan: $_.perl()";
+                    @params .= map({ $_ = $_.() if $_ ~~ Callable; $_ });
+
+                    my $prom = $client."$commandname"(|@params);
+
+                    given .value {
+                        if .value.VAR.^name eq "Scalar" && not .value.defined {
+                            lives-ok {
+                                .value = $prom;
+                            }, "stashed away result promise for later";
+                        } else {
+                            cmp-ok (try await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
+                        }
+                    }
+                }
+                when .key eq "planned" {
+                    my $prom = .value;
+                    is-deeply $prom.status, PromiseStatus::Planned, "promise still planned";
+                }
+                when .key eq "await" {
+                    my Mu $checker = .value.key;
+                    my $prom = .value.value;
+
+                    note "awaiting a promise...";
+                    cmp-ok (await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
+                    note "done";
+                }
+                when .key eq "execute" {
+                    .value.();
+                }
+                default {
+                    die "unknown command in test plan: $_.perl()";
+                }
             }
         }
     };
