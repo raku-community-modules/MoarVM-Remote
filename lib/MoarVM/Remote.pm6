@@ -252,7 +252,6 @@ class MoarVM::Remote {
 
     multi method is-execution-suspended() {
         self!send-request(MT_IsExecutionSuspendedRequest).then({
-            say .result.perl;
             .result<suspended>
         })
     }
