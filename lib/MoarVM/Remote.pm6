@@ -322,4 +322,11 @@ class MoarVM::Remote {
             .result<frames>.list;
         })
     }
+
+    method breakpoint(Str $file, Int $line, Bool :$suspend = True, Bool :$stacktrace = True) {
+        self!send-request(MT_SetBreakpointRequest, :$file, :$line, :$suspend, :$stacktrace).then({
+            .result
+        })
+    }
+
 }
