@@ -329,4 +329,9 @@ class MoarVM::Remote {
         })
     }
 
+    method clear-breakpoints(Str $file, Int $line) {
+        self!send-request(MT_ClearBreakpoint, :$file, :$line).then({
+            .result<type> == MT_OperationSuccessful
+        })
+    }
 }
