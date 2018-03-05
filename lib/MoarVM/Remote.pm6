@@ -89,6 +89,8 @@ sub send32be($sock, $num) {
 }
 
 class MoarVM::Remote {
+    has int $.debug;
+
     has $!sock;
     has $!worker;
 
@@ -195,11 +197,11 @@ class MoarVM::Remote {
                     $message<type> = MessageType($message<type>);
                 }
                 without $task {
-                    note "Got notification from moarvm: $message.perl()";
+                    note "Got notification from moarvm: $message.perl()" if $!debug;
                     $!events-supplier.emit($message);
                     next;
                 }
-                note "got reply from moarvm: $message.perl()";
+                note "got reply from moarvm: $message.perl()" if $!debug;
                 if $message<type> == 0 {
                     $task.break(X::MoarVM::Remote::MessageType.new(type => $message<type>));
                 } elsif $message<type> == 1 {
@@ -237,7 +239,7 @@ class MoarVM::Remote {
 
         my $packed = Data::MessagePack::pack(%data-to-send);
 
-        note $packed;
+        note $packed if $!debug;
 
         start {
             my $prom = Promise.new;
@@ -307,7 +309,7 @@ class MoarVM::Remote {
 
     method lexicals(Int $handle) {
         self!send-request(MT_ContextLexicalsRequest, :$handle).then({
-            .result<lexicals>.list;
+            .result<lexicals>;
         })
     }
 
