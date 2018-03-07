@@ -93,7 +93,7 @@ sub send32be($sock, $num) {
 }
 
 class MoarVM::Remote {
-    has int $.debug;
+    has int $.debug is rw;
 
     has $!sock;
     has $!worker;
@@ -176,6 +176,18 @@ class MoarVM::Remote {
                 my $worker-events = Data::MessagePack::StreamingUnpacker.new(source => $without-handshake-shared).Supply;
 
                 my $res = self.bless(sock => (await $sockprom), :$worker-events, remote-version => await $remote-version);
+                $without-handshake-shared.batch(:2seconds).tap({
+                    if $res.debug {
+                        my @full = ([~] @$_).list;
+                        if @full > 35 {
+                            say "received:";
+                            .fmt("%x", " ").say for @full.rotor(40 => 0, :partial);
+                        } else {
+                            note "received: @full.fmt("%02x", " ")";
+                        }
+                    }
+                });
+
                 await $handshakeprom;
                 $result = $res;
                 last;
