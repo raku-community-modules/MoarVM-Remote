@@ -366,4 +366,15 @@ class MoarVM::Remote {
             .result<type> == MT_OperationSuccessful
         })
     }
+
+    method object-metadata(Int $handle) {
+        self!send-request(MT_ObjectMetadataRequest, :$handle).then({
+            .result
+        })
+    }
+    method object-positionals(Int $handle) {
+        self!send-request(MT_ObjectPositionalsRequest, :$handle).then({
+            .result
+        })
+    }
 }
