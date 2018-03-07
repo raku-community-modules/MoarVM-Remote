@@ -63,7 +63,11 @@ class X::MoarVM::Remote::MessageProcessing is Exception {
     has $.reason;
 
     method message {
-        "Remote encountered an error processing message: $.reason"
+        with $.reason {
+            "Remote encountered an error processing message: $_";
+        } else {
+            "Remote encountered an unexplained error";
+        }
     }
 }
 
