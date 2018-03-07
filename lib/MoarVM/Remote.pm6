@@ -369,7 +369,7 @@ class MoarVM::Remote {
 
     method object-metadata(Int $handle) {
         self!send-request(MT_ObjectMetadataRequest, :$handle).then({
-            .result
+            .result<metadata>
         })
     }
     method object-positionals(Int $handle) {
