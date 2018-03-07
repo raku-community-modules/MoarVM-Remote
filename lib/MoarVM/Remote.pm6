@@ -41,6 +41,9 @@ our enum MessageType is export <
     MT_Invoke
     MT_InvokeResult
     MT_UnhandledException
+    MT_OperationUnsuccessful
+    MT_MetadataRequest
+    MT_MetadataResponse
 >;
 
 class X::MoarVM::Remote::ProtocolError is Exception {
