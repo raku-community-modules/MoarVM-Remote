@@ -377,4 +377,9 @@ class MoarVM::Remote {
             .result
         })
     }
+    method object-associatives(Int $handle) {
+        self!send-request(MT_ObjectAssociativesRequest, :$handle).then({
+            .result
+        })
+    }
 }
