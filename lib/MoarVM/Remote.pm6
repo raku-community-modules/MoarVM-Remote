@@ -337,9 +337,9 @@ class MoarVM::Remote {
         })
     }
 
-    method release-handles(+@handles where .all ~~ Int) {
-        my @handles-cleaned = do +$_ for @handles;
-        self!send-request(MT_ReleaseHandles, :@handles).then({
+    method release-handles(+@handles) {
+        my @handles-cleaned = @handles.map(+*);
+        self!send-request(MT_ReleaseHandles, handles => @handles-cleaned).then({
             .result<type> == MT_OperationSuccessful
         })
     }
