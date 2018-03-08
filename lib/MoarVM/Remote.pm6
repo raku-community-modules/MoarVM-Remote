@@ -385,17 +385,17 @@ class MoarVM::Remote {
 
     multi method step(Int $thread, :$into!) {
         self!send-request(MT_StepInto, :$thread).then({
-            .result<type> == MT_OperationSuccessful
+            .result<id> if .result<type> == MT_OperationSuccessful
         })
     }
     multi method step(Int $thread, :$over!) {
         self!send-request(MT_StepOver, :$thread).then({
-            .result<type> == MT_OperationSuccessful
+            .result<id> if .result<type> == MT_OperationSuccessful
         })
     }
     multi method step(Int $thread, :$out!) {
         self!send-request(MT_StepOut, :$thread).then({
-            .result<type> == MT_OperationSuccessful
+            .result<id> if .result<type> == MT_OperationSuccessful
         })
     }
 }
