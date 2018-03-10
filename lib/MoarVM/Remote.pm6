@@ -1,6 +1,8 @@
 use Data::MessagePack;
 use Data::MessagePack::StreamingUnpacker;
 
+use JSON::Fast;
+
 our enum MessageType is export <
     MT_MessageTypeNotUnderstood
     MT_ErrorProcessingMessage
@@ -107,6 +109,10 @@ class MoarVM::Remote {
 
     has Lock $!queue-lock .= new;
     has @!request-promises;
+
+    has %!event-suppliers;
+
+    has %!breakpoint-to-event{Any};
 
     has Lock $!id-lock .= new;
     has int32 $!req_id = 1;
@@ -220,8 +226,13 @@ class MoarVM::Remote {
                     $message<type> = MessageType($message<type>);
                 }
                 without $task {
-                    note "Got notification from moarvm: $message.perl()" if $!debug;
-                    $!events-supplier.emit($message);
+                    with %!event-suppliers{$message<id>} {
+                        note "An event handler gets a notification";
+                        $_.emit($message);
+                    } else {
+                        note "Got notification from moarvm: $message.&to-json(:pretty)" if $!debug;
+                        $!events-supplier.emit($message);
+                    }
                     next;
                 }
                 note "got reply from moarvm: $message.perl()" if $!debug;
@@ -350,12 +361,23 @@ class MoarVM::Remote {
 
     method breakpoint(Str $file, Int $line, Bool :$suspend = True, Bool :$stacktrace = True) {
         self!send-request(MT_SetBreakpointRequest, :$file, :$line, :$suspend, :$stacktrace).then({
-            .result
+            if .result<type> == MT_SetBreakpointConfirmation {
+                %!breakpoint-to-event{$file => .result<line>}.push(.result<id>);
+                note "setting up an event supplier for event $_.result()<id>";
+                %!event-suppliers{.result<id>} = my $sup = Supplier::Preserving.new;
+                note "set it up";
+                my %ret = flat @(.result.hash), "notifications" => $sup.Supply;
+                note "created return value";
+                %ret;
+            }
         })
     }
 
     method clear-breakpoints(Str $file, Int $line) {
         self!send-request(MT_ClearBreakpoint, :$file, :$line).then({
+            %!breakpoint-to-event{$file => $line}.map({
+                %!event-suppliers{$_}.done
+            });
             .result<type> == MT_OperationSuccessful
         })
     }
