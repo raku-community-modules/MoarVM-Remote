@@ -13,7 +13,7 @@
   },
   "resources" : [ ],
   "source-url" : "git@github.com:edumentab/p6-moarvm-remote.git",
-  "tags" : [ ],
+  "tags" : [ "Debug", "MoarVM", "API" ],
   "test-depends" : [ ],
   "version" : "0.0.1"
 }
