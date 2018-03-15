@@ -7,7 +7,7 @@ use Test;
 use MoarVM::Remote;
 use MoarRemoteTest;
 
-plan 2;
+plan 1;
 
 
 Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
