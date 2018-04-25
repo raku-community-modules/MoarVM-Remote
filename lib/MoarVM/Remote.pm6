@@ -50,6 +50,8 @@ our enum MessageType is export <
     MT_ObjectPositionalsResponse
     MT_ObjectAssociativesRequest
     MT_ObjectAssociativesResponse
+    MT_HandleEquivalenceRequest
+    MT_HandleEquivalenceResponse
 >;
 
 class X::MoarVM::Remote::ProtocolError is Exception {
@@ -133,7 +135,8 @@ class MoarVM::Remote {
         if $buffer.elems >= "MOARVM-REMOTE-DEBUG\0".chars + 4 {
             if $buffer.subbuf(0, "MOARVM-REMOTE-DEBUG\0".chars).list eqv  "MOARVM-REMOTE-DEBUG\0".encode("ascii").list {
                 $buffer.splice(0, "MOARVM-REMOTE-DEBUG\0".chars);
-                if (my $major = recv16be($buffer)) != 1 || (my $minor = recv16be($buffer)) != 0 {
+                # Currently no need for a specific minor version to be met.
+                if (my $major = recv16be($buffer)) != 1 {
                     die X::MoarVM::Remote::Version.new(:versions($major, $minor));
                 }
                 return Version.new("$major.$minor");
@@ -419,5 +422,16 @@ class MoarVM::Remote {
         self!send-request(MT_StepOut, :$thread).then({
             .result<id> if .result<type> == MT_OperationSuccessful
         })
+    }
+
+    method equivalences(+@handles) {
+        my @handles-cleaned = @handles.map(+*);
+        if $.remote-version before v1.1 {
+            Promise.broken("Remote does not yet implement equivalences command");
+        } else {
+            self!send-request(MT_HandleEquivalenceRequest, :handles(@handles-cleaned)).then({
+                .result<classes>.List if .result<type> == MT_HandleEquivalenceResponse
+            });
+        }
     }
 }
