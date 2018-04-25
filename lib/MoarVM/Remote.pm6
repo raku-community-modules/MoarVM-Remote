@@ -363,14 +363,14 @@ class MoarVM::Remote {
     }
 
     method breakpoint(Str $file, Int $line, Bool :$suspend = True, Bool :$stacktrace = True) {
-        self!send-request(MT_SetBreakpointRequest, :$file, :$line, :$suspend, :$stacktrace).then({
+        self!send-request(MT_SetBreakpointRequest, :$file, line => +$line, :$suspend, :$stacktrace).then({
             if .result<type> == MT_SetBreakpointConfirmation {
                 %!breakpoint-to-event{$file => .result<line>}.push(.result<id>);
-                note "setting up an event supplier for event $_.result()<id>";
+                note "setting up an event supplier for event $_.result()<id>" if $!debug;
                 %!event-suppliers{.result<id>} = my $sup = Supplier::Preserving.new;
-                note "set it up";
+                note "set it up" if $!debug;
                 my %ret = flat @(.result.hash), "notifications" => $sup.Supply;
-                note "created return value";
+                note "created return value" if $!debug;
                 %ret;
             }
         })
