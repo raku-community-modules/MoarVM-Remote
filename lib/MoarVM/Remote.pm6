@@ -136,7 +136,9 @@ class MoarVM::Remote {
             if $buffer.subbuf(0, "MOARVM-REMOTE-DEBUG\0".chars).list eqv  "MOARVM-REMOTE-DEBUG\0".encode("ascii").list {
                 $buffer.splice(0, "MOARVM-REMOTE-DEBUG\0".chars);
                 # Currently no need for a specific minor version to be met.
-                if (my $major = recv16be($buffer)) != 1 {
+                my $major = recv16be($buffer);
+                my $minor = recv16be($buffer);
+                if $major != 1 {
                     die X::MoarVM::Remote::Version.new(:versions($major, $minor));
                 }
                 return Version.new("$major.$minor");
