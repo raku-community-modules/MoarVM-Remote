@@ -15,9 +15,9 @@ Promise.in(10).then: { diag "Did not finish test in 10 seconds. Considering this
 subtest {
     run_debugtarget (ALLOW-INPUT ALLOW-LOCK Q:to/NQP/), :writable,
         sub outermost_sub() {
-            diag("looking for data");
+            note("# looking for data");
             my $first_input := nqp::chr(nqp::atpos_i(read(1), 0));
-            diag("got data");
+            note("# got data");
             inner_sub($first_input ~ "!");
             inner_sub("!" ~ $first_input);
         }
