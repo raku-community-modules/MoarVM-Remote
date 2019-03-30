@@ -24,6 +24,8 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
         my $try-sock = IO::Socket::INET.new(:localhost("localhost"), :localport($port), :listen(True));
         $try-sock.close;
 
+        my Promise $checker-run;
+
         my $proc = Proc::Async.new(|@pre-command, "--debug-port=$port", |("--debug-suspend" if $start-suspended), |@post-command, |%("w" => True if $writable));
 
         react {
@@ -56,7 +58,7 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
 
             whenever $proc.ready {
                 whenever MoarVM::Remote.connect($port) -> $client {
-                    whenever start { checker($client, $supplier.Supply, $proc) } {
+                    whenever $checker-run = start { checker($client, $supplier.Supply, $proc) } {
                         $proc.kill;
                     }
                     QUIT {
@@ -68,6 +70,9 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
                 }
             }
         }
+
+        await $checker-run;
+
         last;
 
         CATCH {
