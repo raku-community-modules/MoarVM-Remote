@@ -10,7 +10,7 @@ use MoarRemoteTest;
 plan 1;
 
 
-Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
+Promise.in(10).then: { diag "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
 
 {
 my @threads;

@@ -8,14 +8,13 @@ use MoarRemoteTest;
 
 plan 4;
 
-Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
+Promise.in(10).then: { diag "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
 
 run_debugtarget("nqp::sleep(1)", :start-suspended,
     -> $client, $supply, $proc {
         is-deeply (await $client.is-execution-suspended()), True, "start-suspended starts program suspended";
     });
 
-note "running the other thing";
 run_debugtarget("say('alive'); nqp::sleep(5)",
     -> $client, $supply, $proc {
         my $got-alive = False;
@@ -39,7 +38,7 @@ run_debugtarget("say('alive'); nqp::sleep(5)",
                 }
             }
             whenever Promise.in(3) {
-                say "the timeout fired";
+                diag "the timeout fired";
                 $reached-timeout = True;
                 done;
             }
