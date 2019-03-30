@@ -39,7 +39,7 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
                 when / "SORRY" / {
                     die "Program could not be run: $_";
                 }
-                say "STDERR: " ~ $_ for $_.lines;
+                note "STDERR: " ~ $_ for $_.lines;
                 $supplier.emit("stderr" => $_);
             }
 
@@ -177,7 +177,7 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
             }
             given @plan.shift {
                 when Positional | Seq {
-                    note "positional or seq";
+                    diag "positional or seq";
                     @plan.prepend(@$_);
                 }
                 when .key eq "command" {
