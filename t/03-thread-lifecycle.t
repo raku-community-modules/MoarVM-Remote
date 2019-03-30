@@ -85,7 +85,7 @@ run_testplan [
     send    => <threads-list> =>
         -> @threads {
             is-deeply @threads.first(*.<thread> == 1).<num_locks>, 0,
-                "all locks unlocked shows up.";
+                "all locks on thread 1 unlocked shows up.";
             is-deeply @threads.first(*.<thread> == $T1-id).<num_locks>, 1,
                 "one lock now held by second thread shows up";
         },
