@@ -183,17 +183,18 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
                 when .key eq "command" {
                     my $wants-await = True;
                     my $wants-send  = True;
-                    if .value.key eq "async" {
-                        $_ = command => .value.value;
+		    my $p = $_;
+		    if $p.value.key eq "async" {
+			$p = command => $p.value.value ;
                         $wants-await = False;
                     }
-                    if .value.key eq "finish" {
-                        $_ = command => .value.value;
+                    if $p.value.key eq "finish" {
+                        $p = command => $p.value.value;
                         $wants-send = False;
                     }
 
-                    my $command = .value ~~ Pair ?? .value.key !! .value;
-                    my $arg = .value ~~ Pair ?? .value.value !! 0;
+                    my $command = $p.value ~~ Pair ?? $p.value.key !! $p.value;
+                    my $arg = $p.value ~~ Pair ?? $p.value.value !! 0;
                     my $to-send =
                         (%command_to_letter{$command} // die "command type not understood: $_.value()")
                         ~ $arg;
