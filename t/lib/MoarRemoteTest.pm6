@@ -175,7 +175,7 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
                 ok False, "The test subject exited!";
                 last;
             }
-            given @plan.shift {
+            given @plan.shift -> $_ is copy {
                 when Positional | Seq {
                     diag "positional or seq";
                     @plan.prepend(@$_);
