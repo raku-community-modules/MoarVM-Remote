@@ -41,6 +41,7 @@ my ($T0-id, $T1-id);
 my @initial_threads;
 run_testplan [
     send    => <threads-list> =>
+        #| Check that main thread has no locks held
         -> @threads {
             is-deeply @threads.first(*.<thread> == 1).<num_locks>, 0,
                 "main thread has no locks held";
@@ -49,6 +50,7 @@ run_testplan [
     command => CreateLock => 0,
     command => CreateLock => 1,
     send    => <threads-list> =>
+        #| Check two locks that were created "held" show up
         -> @threads {
             is-deeply @threads.first(*.<thread> == 1).<num_locks>, 2,
                 "two locks created and held show up";
@@ -69,6 +71,7 @@ run_testplan [
     assert  => "NoOutput",
     command => UnlockThread => 0,
     send    => <threads-list> =>
+        #| Check one locks that was unlocked, another kept held show up on right thread
         -> @threads {
             is-deeply @threads.first(*.<thread> == 1).<num_locks>, 1,
                 "one lock unlocked shows up.";
@@ -83,6 +86,7 @@ run_testplan [
     command => JoinThread => 0,
     command => UnlockThread => 1,
     send    => <threads-list> =>
+        #| Check thread 1 has no locks held, thread $T1-id has one held
         -> @threads {
             is-deeply @threads.first(*.<thread> == 1).<num_locks>, 0,
                 "all locks on thread 1 unlocked shows up.";
