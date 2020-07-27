@@ -358,6 +358,12 @@ class MoarVM::Remote {
         })
     }
 
+    method find-method(Int $thread, Int $handle, Str $name) {
+        self!send-request(MT_FindMethod, :$thread, :$handle, :$name).then({
+            .result<handle>;
+        })
+    }
+
     method dump(Int $thread) {
         self!send-request(MT_ThreadStackTraceRequest, :$thread).then({
             .result<frames>.list;
