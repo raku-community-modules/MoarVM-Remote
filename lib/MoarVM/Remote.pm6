@@ -460,6 +460,34 @@ class MoarVM::Remote {
         });
     }
 
+    method invoke(Int $thread, Int $handle, @arguments) {
+        die "malformed arguments: needs to be two-element lists in a list" unless all(@arguments).elems == 2;
+        die "malformed arguments: first entry must be str, int, num, or obj" unless all(@arguments)[0] eq any(<str int num obj>);
+        die "int arguments must have integer numbers" unless @arguments>>[0] ne "int" Z|| so (try @arguments>>[1].Int);
+        die "num arguments must have integer or floating point numbers" unless @arguments>>[0] ne "num" Z|| so (try +@arguments>>[1]);
+        die "str arguments must have a string or be an Int" unless @arguments>>[0] ne "str" Z|| @arguments>>[1] ~~ Str | Int;
+        die "obj arguments must have an integer number" unless @arguments>>[0] ne "obj" Z|| @arguments>>[1] ~~ Int;
+        my @passed-args = @arguments.map({
+            .[0] eq "int" ?? %(kind => "int", value => +.[1]) !!
+            .[0] eq "str" ?? (
+                .[1] ~~ Str ?? %(kind => "str", value => ~.[1]) !!
+                               %(kind => "str", handle => .[1])) !!
+            .[0] eq "num" ?? %(kind => "num", value => Num(.[1])) !!
+            .[0] eq "obj" ?? %(kind => "obj", handle => .[1].Int) !!
+                $_
+        });
+        dd @passed-args;
+        self!send-request(MT_Invoke, :$thread, :$handle,
+                arguments => @passed-args).then({
+            if .result<type> == MT_OperationSuccessful {
+                %!event-suppliers{.result<id>} = my $sup = Supplier::Preserving.new;
+                note "set up supplier for invocation" if $!debug;
+                start react whenever $sup { dd $_; last }
+            }
+            .result
+        });
+    }
+
     method equivalences(+@handles) {
         my @handles-cleaned = @handles.map(+*);
         if $.remote-version before v1.1 {
