@@ -52,6 +52,8 @@ our enum MessageType is export <
     MT_ObjectAssociativesResponse
     MT_HandleEquivalenceRequest
     MT_HandleEquivalenceResponse
+    MT_HLLSymbolRequest
+    MT_HLLSymbolResponse
 >;
 
 class X::MoarVM::Remote::ProtocolError is Exception {
@@ -436,6 +438,26 @@ class MoarVM::Remote {
         self!send-request(MT_StepOut, :$thread).then({
             .result<id> if .result<type> == MT_OperationSuccessful
         })
+    }
+
+    method get-available-hlls() {
+        self!send-request(MT_HLLSymbolRequest).then({
+            .result.&dd;
+            .result<keys> if .result<type> == MT_HLLSymbolResponse
+        });
+    }
+
+    method get-hll-sym-keys(Str $hll) {
+        self!send-request(MT_HLLSymbolRequest, :$hll).then({
+            .result.&dd;
+            .result<keys> if .result<type> == MT_HLLSymbolResponse
+        });
+    }
+
+    method get-hll-sym(Str $hll, Str $name) {
+        self!send-request(MT_HLLSymbolRequest, :$hll, :$name).then({
+            .result<handle>
+        });
     }
 
     method equivalences(+@handles) {
