@@ -358,6 +358,12 @@ class MoarVM::Remote {
         })
     }
 
+    method decontainerize(Int $thread, Int $handle) {
+        self!send-request(MT_DecontainerizeHandle, :$thread, :$handle).then({
+            .result<handle>;
+        })
+    }
+
     method find-method(Int $thread, Int $handle, Str $name) {
         self!send-request(MT_FindMethod, :$thread, :$handle, :$name).then({
             .result<handle>;
