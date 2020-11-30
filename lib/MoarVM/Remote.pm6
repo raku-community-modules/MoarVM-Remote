@@ -483,16 +483,14 @@ class MoarVM::Remote {
             .[0] eq "obj" ?? %(kind => "obj", handle => .[1].Int) !!
                 $_
         });
-        dd @passed-args;
-        self!send-request(MT_Invoke, :$thread, :$handle,
-                arguments => @passed-args).then({
-            if .result<type> == MT_OperationSuccessful {
-                %!event-suppliers{.result<id>} = my $sup = Supplier::Preserving.new;
-                note "set up supplier for invocation" if $!debug;
-                start react whenever $sup { dd $_; last }
-            }
-            .result
-        });
+        my $invoke-setup-result = await self!send-request(MT_Invoke, :$thread, :$handle,
+                arguments => @passed-args);
+        if $invoke-setup-result.<type> != MT_OperationSuccessful {
+            die $invoke-setup-result;
+        }
+        my Promise $result .= new;
+        %!event-suppliers{$invoke-setup-result<id>} = $result.vow;
+        $result;
     }
 
     method equivalences(+@handles) {
