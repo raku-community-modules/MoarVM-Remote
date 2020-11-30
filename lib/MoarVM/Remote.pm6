@@ -233,9 +233,16 @@ class MoarVM::Remote {
                     $message<type> = MessageType($message<type>);
                 }
                 without $task {
+                    dd $message if $!debug;
                     with %!event-suppliers{$message<id>} {
                         note "An event handler gets a notification" if $!debug;
-                        $_.emit($message);
+                        if $_ ~~ Supplier {
+                            .emit($message);
+                        }
+                        elsif .^can("keep") {
+                            .keep($message);
+                            %!event-suppliers{$message<id>}:delete;
+                        }
                     } else {
                         note "Got notification from moarvm: $message.&to-json(:pretty)" if $!debug;
                         $!events-supplier.emit($message);
