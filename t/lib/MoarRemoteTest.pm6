@@ -48,8 +48,8 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
             }
 
             whenever $proc.start {
-                if .status === PromiseStatus::Broken {
-                    .result.self
+                QUIT {
+                    die $_
                 }
                 $supplier.emit("event" => $_);
                 $supplier.done;
