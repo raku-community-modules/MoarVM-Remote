@@ -48,8 +48,8 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
             }
 
             whenever $proc.start {
-                if .status === PromiseStatus::Broken {
-                    .result.self
+                QUIT {
+                    die $_
                 }
                 $supplier.emit("event" => $_);
                 $supplier.done;
@@ -91,14 +91,13 @@ sub ALLOW-INPUT($code) is export { Q:to/NQP/ ~ $code }
     sub create_buf($type) {
         my $buf := nqp::newtype(nqp::null(), 'VMArray');
         nqp::composetype($buf, nqp::hash('array', nqp::hash('type', $type)));
-        nqp::setmethcache($buf, nqp::hash('new', method () {nqp::create($buf)}));
         $buf;
     };
 
     my $buf8 := create_buf(uint8);
 
     sub read($count) {
-        nqp::readfh(nqp::getstdin, $buf8.new, $count)
+        nqp::readfh(nqp::getstdin, nqp::create($buf8), $count)
     }
     NQP
 
@@ -120,7 +119,7 @@ my $testsubject = ALLOW-INPUT ALLOW-LOCK Q:to/NQP/;
     my @threads;
 
     while 1 {
-        my $result := nqp::readfh(nqp::getstdin(), $buf8.new(), 2);
+        my $result := nqp::readfh(nqp::getstdin(), nqp::create($buf8), 2);
         my $opcode := nqp::chr(nqp::atpos_i($result, 0));
         my $arg := +nqp::chr(nqp::atpos_i($result, 1));
         if $opcode eq "T" { # spawn thread

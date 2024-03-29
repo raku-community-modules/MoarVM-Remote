@@ -10,5 +10,5 @@ Promise.in(10).then: { note "Did not finish test in 10 seconds. Considering this
 
 run_debugtarget("nqp::sleep(10)", :start-suspended,
     -> $client, $supply, $proc {
-        is $client.remote-version, v1.1, "got the right version"
+        is $client.remote-version, v1.3, "got the right version"
     });
