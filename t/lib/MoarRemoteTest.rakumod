@@ -92,7 +92,7 @@ sub ALLOW-INPUT($code) is export { Q:to/NQP/ ~ $code }
         my $buf := nqp::newtype(nqp::null(), 'VMArray');
         nqp::composetype($buf, nqp::hash('array', nqp::hash('type', $type)));
         $buf;
-    };
+    }
 
     my $buf8 := create_buf(uint8);
 
@@ -125,21 +125,27 @@ my $testsubject = ALLOW-INPUT ALLOW-LOCK Q:to/NQP/;
         if $opcode eq "T" { # spawn thread
             nqp::push(@threads, nqp::newthread({ do_thread($arg) }, 0));
             say("OK T$arg");
-        } elsif $opcode eq "R" { # run thread
+        }
+        elsif $opcode eq "R" { # run thread
             nqp::threadrun(@threads[$arg]);
-        } elsif $opcode eq "L" { # create a locked lock
+        }
+        elsif $opcode eq "L" { # create a locked lock
             my $l := Lock.new;
             nqp::lock($l);
             nqp::bindpos(@locks, $arg, $l);
             say("OK L$arg");
-        } elsif $opcode eq "U" { # unlock lock
+        }
+        elsif $opcode eq "U" { # unlock lock
             nqp::unlock(@locks[$arg]);
-        } elsif $opcode eq "J" { # join thread
+        }
+        elsif $opcode eq "J" { # join thread
             nqp::threadjoin(@threads[$arg]);
             say("OK J$arg");
-        } elsif $opcode eq "Q" { # quit gracefully
+        }
+        elsif $opcode eq "Q" { # quit gracefully
             last;
-        } else {
+        }
+        else {
             note("unknown operation requested: $opcode");
             nqp::exit(1);
         }
@@ -149,11 +155,11 @@ my $testsubject = ALLOW-INPUT ALLOW-LOCK Q:to/NQP/;
 
 my %command_to_letter =
     CreateThread => "T",
-    RunThread => "R",
-    CreateLock => "L",
+    RunThread    => "R",
+    CreateLock   => "L",
     UnlockThread => "U",
-    JoinThread => "J",
-    Quit => "Q";
+    JoinThread   => "J",
+    Quit         => "Q";
 
 sub run_testplan(@plan is copy, $description = "test plan") is export {
     subtest {
@@ -204,7 +210,8 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
                     if $wants-await {
                         if $command ne "Quit" {
                             is-deeply (try await $outputs), "OK $to-send", "command $command executed";
-                        } else {
+                        }
+                        else {
                             is-deeply (try await $outputs), "OK...", "quit the program";
                         }
                     }
@@ -232,8 +239,9 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
                                 lives-ok {
                                     .value = $received{.key};
                                 }, "stored result from key $_.key()";
-                            } else {
-                                cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.perl()";
+                            }
+                            else {
+                                cmp-ok $received{.key}, "~~", .value, "check event's $_.key() against $_.value.raku()";
                             }
                         }
                     }, "receive an event";
@@ -251,8 +259,9 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
                             lives-ok {
                                 .value = $prom;
                             }, "stashed away result promise for later";
-                        } else {
-                            cmp-ok (try await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
+                        }
+                        else {
+                            cmp-ok (try await $prom), "~~", .value, "check remote's answer against $_.value.raku()";
                         }
                     }
                 }
@@ -265,14 +274,14 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
                     my $prom = .value.value;
 
                     note "awaiting a promise...";
-                    cmp-ok (await $prom), "~~", .value, "check remote's answer against $_.value.perl()";
+                    cmp-ok (await $prom), "~~", .value, "check remote's answer against $_.value.raku()";
                     note "done";
                 }
                 when .key eq "execute" {
                     .value.();
                 }
                 default {
-                    die "unknown command in test plan: $_.perl()";
+                    die "unknown command in test plan: $_.raku()";
                 }
             }
         }

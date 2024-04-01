@@ -94,11 +94,11 @@ class X::MoarVM::Remote::Version is Exception {
 
 sub recv32be($inbuf) {
     my $buf = $inbuf.splice(0, 4);
-    return [+] $buf.list >>+<>> (24, 16, 8, 0);
+    [+] $buf.list >>+<>> (24, 16, 8, 0);
 }
 sub recv16be($inbuf) {
     my $buf = $inbuf.splice(0, 2);
-    return [+] $buf.list >>+<>> (8, 0);
+    [+] $buf.list >>+<>> (8, 0);
 }
 sub send32be($sock, $num) {
     my $buf = Buf[uint8].new($num.polymod(255, 255, 255, 255)[^4].reverse);
@@ -217,7 +217,7 @@ class MoarVM::Remote {
                     }
                 }
             }
-            $result;
+            $result
         }
     }
 
@@ -243,18 +243,21 @@ class MoarVM::Remote {
                             .keep($message);
                             %!event-suppliers{$message<id>}:delete;
                         }
-                    } else {
+                    }
+                    else {
                         note "Got notification from moarvm: $message.&to-json(:pretty)" if $!debug;
                         $!events-supplier.emit($message);
                     }
                     next;
                 }
-                note "got reply from moarvm: $message.perl()" if $!debug;
+                note "got reply from moarvm: $message.raku()" if $!debug;
                 if $message<type> == 0 {
                     $task.break(X::MoarVM::Remote::MessageType.new(type => $message<type>));
-                } elsif $message<type> == 1 {
+                }
+                elsif $message<type> == 1 {
                     $task.break(X::MoarVM::Remote::MessageProcessing.new(reason => $message<reason>));
-                } else {
+                }
+                else {
                     $task.keep($message)
                 }
                 LAST $!events-supplier.done();
@@ -394,7 +397,7 @@ class MoarVM::Remote {
                 note "set it up" if $!debug;
                 my %ret = flat @(.result.hash), "notifications" => $sup.Supply;
                 note "created return value" if $!debug;
-                %ret;
+                %ret
             }
         })
     }
@@ -468,12 +471,19 @@ class MoarVM::Remote {
     }
 
     method invoke(Int $thread, Int $handle, @arguments) {
-        die "malformed arguments: needs to be two-element lists in a list" unless all(@arguments).elems == 2;
-        die "malformed arguments: first entry must be str, int, num, or obj" unless all(@arguments)[0] eq any(<str int num obj>);
-        die "int arguments must have integer numbers" unless @arguments>>[0] ne "int" Z|| so (try @arguments>>[1].Int);
-        die "num arguments must have integer or floating point numbers" unless @arguments>>[0] ne "num" Z|| so (try +@arguments>>[1]);
-        die "str arguments must have a string or be an Int" unless @arguments>>[0] ne "str" Z|| @arguments>>[1] ~~ Str | Int;
-        die "obj arguments must have an integer number" unless @arguments>>[0] ne "obj" Z|| @arguments>>[1] ~~ Int;
+        die "malformed arguments: needs to be two-element lists in a list"
+          unless all(@arguments).elems == 2;
+        die "malformed arguments: first entry must be str, int, num, or obj"
+          unless all(@arguments)[0] eq any(<str int num obj>);
+        die "int arguments must have integer numbers"
+          unless @arguments>>[0] ne "int" Z|| so (try @arguments>>[1].Int);
+        die "num arguments must have integer or floating point numbers"
+          unless @arguments>>[0] ne "num" Z|| so (try +@arguments>>[1]);
+        die "str arguments must have a string or be an Int"
+          unless @arguments>>[0] ne "str" Z|| @arguments>>[1] ~~ Str | Int;
+        die "obj arguments must have an integer number"
+          unless @arguments>>[0] ne "obj" Z|| @arguments>>[1] ~~ Int;
+
         my @passed-args = @arguments.map({
             .[0] eq "int" ?? %(kind => "int", value => +.[1]) !!
             .[0] eq "str" ?? (
@@ -483,24 +493,68 @@ class MoarVM::Remote {
             .[0] eq "obj" ?? %(kind => "obj", handle => .[1].Int) !!
                 $_
         });
-        my $invoke-setup-result = await self!send-request(MT_Invoke, :$thread, :$handle,
-                arguments => @passed-args);
-        if $invoke-setup-result.<type> != MT_OperationSuccessful {
-            die $invoke-setup-result;
-        }
+        my $invoke-setup-result = await self!send-request(
+          MT_Invoke, :$thread, :$handle, arguments => @passed-args
+        );
+        die $invoke-setup-result
+          if $invoke-setup-result.<type> != MT_OperationSuccessful;
+
         my Promise $result .= new;
         %!event-suppliers{$invoke-setup-result<id>} = $result.vow;
-        $result;
+        $result
     }
 
     method equivalences(+@handles) {
         my @handles-cleaned = @handles.map(+*);
         if $.remote-version before v1.1 {
             Promise.broken("Remote does not yet implement equivalences command");
-        } else {
+        }
+        else {
             self!send-request(MT_HandleEquivalenceRequest, :handles(@handles-cleaned)).then({
                 .result<classes>.List if .result<type> == MT_HandleEquivalenceResponse
             });
         }
     }
 }
+
+=begin pod
+
+=head1 NAME
+
+MoarVM::Remote - A library for working with the MoarVM remote debugging API
+
+=head1 SYNOPSIS
+
+=begin code :lang<raku>
+
+# see examples in the test-suite for now
+
+=end code
+
+=head1 DESCRIPTION
+
+A Raku library to interface with MoarVM's remote debugger protocol.
+
+It's mostly a thin layer above the wire format,
+L<documented in the MoarVM repository|https://github.com/MoarVM/MoarVM/blob/master/docs/debug-server-protocol.md>
+
+It exposes commands as methods, responses as Promises, and events/event
+streams as Supplies.
+
+You can use the debug protocol with the Raku module/program
+L<App::MoarVM::Debug|https://raku.land/github:edumentab/App::MoarVM::Debug>.
+Another application that supports the debug protocol is L<Comma|commaide.com>.
+
+=head1 AUTHOR
+
+Timo Paulssen
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2011 - 2020 Timo Paulssen
+
+Copyright 2021 - 2024 Raku Community
+
+This library is free software; you can redistribute it and/or modify it under the Artistic License 2.0.
+
+=end pod
