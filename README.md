@@ -9,9 +9,7 @@ SYNOPSIS
 ========
 
 ```raku
-use Grammar::Debugger;
-
-grammar Some::Grammar { ... }
+# see examples in the test-suite for now
 ```
 
 DESCRIPTION
@@ -35,7 +33,7 @@ COPYRIGHT AND LICENSE
 
 Copyright 2011 - 2020 Timo Paulssen
 
-Copyright 2024 Raku Community
+Copyright 2021 - 2024 Raku Community
 
 This library is free software; you can redistribute it and/or modify it under the Artistic License 2.0.
 

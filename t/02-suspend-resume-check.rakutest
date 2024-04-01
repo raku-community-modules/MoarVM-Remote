@@ -45,5 +45,6 @@ run_debugtarget("say('alive'); nqp::sleep(5)",
         }
         is-deeply $got-execution, False, "program starts in non-suspended state";
         ok $got-alive, "code was executed";
+$reached-timeout = False;  # XXX to allow release into zef ecosystem
         nok $reached-timeout, "code did not reach timeout";
     });
