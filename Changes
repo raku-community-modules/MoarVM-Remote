@@ -1,6 +1,8 @@
 Revision history for MoarVM::Remote
 
 {{$NEXT}}
+
+0.0.3  2024-11-06T19:30:40+01:00
     - Added documentation about message types, adapted from the
       Protocol Design in the MoarVM repository
     - Added CI badges for each OS separately
