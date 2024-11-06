@@ -1,4 +1,4 @@
-[![Actions Status](https://github.com/raku-community-modules/MoarVM-Remote/actions/workflows/test.yml/badge.svg)](https://github.com/raku-community-modules/MoarVM-Remote/actions)
+[![Actions Status](https://github.com/raku-community-modules/MoarVM-Remote/actions/workflows/linux.yml/badge.svg)](https://github.com/raku-community-modules/MoarVM-Remote/actions) [![Actions Status](https://github.com/raku-community-modules/MoarVM-Remote/actions/workflows/macos.yml/badge.svg)](https://github.com/raku-community-modules/MoarVM-Remote/actions) [![Actions Status](https://github.com/raku-community-modules/MoarVM-Remote/actions/workflows/windows.yml/badge.svg)](https://github.com/raku-community-modules/MoarVM-Remote/actions)
 
 NAME
 ====

@@ -1,6 +1,9 @@
 Revision history for MoarVM::Remote
 
 {{$NEXT}}
+    - Added documentation about message types, adapted from the
+      Protocol Design in the MoarVM repository
+    - Added CI badges for each OS separately
 
 0.0.2  2024-04-01T11:24:00+02:00
     - Initial version in the zef ecosystem
