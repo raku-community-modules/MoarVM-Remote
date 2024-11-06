@@ -1,5 +1,3 @@
-use v6.d.PREVIEW;
-
 use Test;
 use MoarVM::Remote;
 
@@ -153,7 +151,7 @@ my %command_to_letter =
     Quit         => "Q";
 
 sub run_testplan(@plan is copy, $description = "test plan") is export {
-    subtest {
+    subtest $description => {
 
     run_debugtarget $testsubject, :writable,
     -> $client, $supply, $proc {
@@ -278,5 +276,5 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
         }
     };
 
-    }, $description;
+    }
 }
