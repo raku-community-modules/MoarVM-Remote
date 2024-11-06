@@ -255,7 +255,7 @@ Request a list of all threads, with some information about each one. This reques
 
 Response to a "Thread List Request". It contains an array of hashes, with one hash per running thread, providing information about that thread. It also contains an indication of whether the thread was suspended, and the number of locks it is currently holding.
 
-The "name" key was added in version 1.2
+The `name` key was added in version 1.2.
 
 ```raku
 {
@@ -282,15 +282,11 @@ The "name" key was added in version 1.2
 }
 ```
 
+### Thread Stack Trace Request (13)
+
+Request the stack trace of a thread. This is only allowed if that thread is suspended; an "Error Processing Message" response will be returned otherwise.
+
 ```raku
-=head3 Thread Stack Trace Request (13)
-
-Request the stack trace of a thread.  This is only allowed if that
-thread is suspended; an "Error Processing Message" response will be
-returned otherwise.
-
-=begin code :lang<raku>
-
 {
   type   => 13,         # MT_ThreadStackTraceRequest
   id     => $new-request-id,
@@ -338,26 +334,17 @@ The `type` key is the debug name of the type of the code object, or `Nil` if the
 }
 ```
 
+### Set Breakpoint Request (15)
+
+Request to set a breakpoint at the specified location, or the closest possible location to it.
+
+The `file` key refers to the source file.
+
+If the `suspend` key is set to `True` then execution of all threads will be suspended when the breakpoint is hit. In either case, the client will be notified. The use of non-suspend breakpoints is for counting the number of times a certain point is reached.
+
+If the `stacktrace` key is set to `true` then a stack trace of the location where the breakpoint was hit will be included. This can be used both with and without `suspend`; with the `suspend` key set to `True` it can save an extra round-trip to request the stack location, while with `suspend` key set to `False` it can be useful for features like "capture a stack trace every time foo is called".
+
 ```raku
-=head3 Set Breakpoint Request (15)
-
-Request to set a breakpoint at the specified location, or the closest
-possible location to it.
-
-The C<file> key refers to the source file.
-
-If the C<suspend> key is set to C<True> then execution of all threads
-will be suspended when the breakpoint is hit. In either case, the client
-will be notified.  The use of non-suspend breakpoints is for counting
-the number of times a certain point is reached.
-
-If the C<stacktrace> key is set to C<true> then a stack trace of the
-location where the breakpoint was hit will be included.  This can be
-used both with and without `suspend`; with the C<suspend> key set to
-C<True> it can save an extra round-trip to request the stack location,
-while with C<suspend> key set to C<False> it can be useful for features
-like "capture a stack trace every time foo is called".
-
 {
   type       => 15,     # MT_SetBreakpointRequest
   id         => $new-request-id,

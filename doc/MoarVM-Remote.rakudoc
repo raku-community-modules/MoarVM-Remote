@@ -369,7 +369,7 @@ with one hash per running thread, providing information about that
 thread. It also contains an indication of whether the thread was
 suspended, and the number of locks it is currently holding.
 
-The "name" key was added in version 1.2
+The C<name> key was added in version 1.2.
 
 =begin code :lang<raku>
 
@@ -397,8 +397,6 @@ The "name" key was added in version 1.2
 }
 
 =end code
-
-=begin code :lang<raku>
 
 =head3 Thread Stack Trace Request (13)
 
@@ -463,8 +461,6 @@ or C<Nil> if there is none.
 
 =end code
 
-=begin code :lang<raku>
-
 =head3 Set Breakpoint Request (15)
 
 Request to set a breakpoint at the specified location, or the closest
@@ -483,6 +479,8 @@ used both with and without `suspend`; with the C<suspend> key set to
 C<True> it can save an extra round-trip to request the stack location,
 while with C<suspend> key set to C<False> it can be useful for features
 like "capture a stack trace every time foo is called".
+
+=begin code :lang<raku>
 
 {
   type       => 15,     # MT_SetBreakpointRequest
