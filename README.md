@@ -23,77 +23,8 @@ It exposes commands as methods, responses as Promises, and events/event streams 
 
 You can use the debug protocol with the Raku module/program [App::MoarVM::Debug](https://raku.land/github:edumentab/App::MoarVM::Debug). Another application that supports the debug protocol is [Comma](commaide.com).
 
-MoarVM Remote Debug Protocol Design
-===================================
-
-The MoarVM Remote Debug Protocol is used to control a MoarVM instance over a socket, for the purposes of debugging. The VM must have been started in debug mode for this capability to be available (with the `--debug-port=12345` parameter).
-
-The wire format
----------------
-
-Rather than invent Yet Another Custom Binary Protocol, the MoarVM remote debug protocol uses [`MessagePack`](https://msgpack.org/) (through the [`Data::MessagePack`](https://raku.land/zef:raku-community-modules/Data::MessagePack) module). This has the advantage of easy future extensibility and existing support from other languages.
-
-The only thing that is not MessagePack is the initial handshake, leaving the freedom to move away from MessagePack in a future version, should there ever be cause to do so.
-
-Since MessagePack is largely just a more compact way to specify JSON, which is essentially a Raku data structure consisting of a hash with keys and values. Therefore all of the messages are show in Raku syntax. This is just for ease of reading: the Raku data structure will be automatically converted to/from MessagePack data on the wire.
-
-### Initial Handshake
-
-Upon receving a connection, MoarVM will immediately send the following **24** bytes if it is willing and able to accept the connection:
-
-  * The string "MOARVM-REMOTE-DEBUG\0" encoded in ASCII
-
-  * A big endian, unsigned, 16-bit major protocol version number - =item big endian, unsigned, 16-bit minor protocol version number
-
-Otherwise, it will send the following response, explaining why it cannot, and then close the connection:
-
-  * The string "MOARVM-REMOTE-DEBUG!" encoded in ASCII
-
-  * A big endian, unsigned, 16-bit length for an error string explaining the rejection (length in bytes)
-
-  * The error string, encoded in UTF-8
-
-A client that receives anything other than a response of this form must close the connection and report an error. A client that receives an error response must report the error.
-
-Otherwise, the client should check if it is able to support the version of the protocol that the server speaks. The onus is on clients to support multiple versions of the protocol should the need arise. See versioning below for more. If the client does not wish to proceed, it should simply close the connection.
-
-If the client is statisfied with the version, it should send:
-
-  * The string "MOARVM-REMOTE-CLIENT-OK\0" encoded in ASCII
-
-For the versions of the protocol defined in this document, all further communication will be in terms of MessagePack messages.
-
-MessagePack envelope
---------------------
-
-Every exchange using MessagePack must be an object at the top level. The object must always have the following keys:
-
-  * `type` which must have an integer value. This specifies the type of the message. Failing to include this field or failing to have its value be an integer is a protocol error, and any side receiving such a message should terminate the connection.
-
-  * `id` which must have an integer value. This is used to associate a response with a request, where required. Any interaction initiated by the client should have an odd `id`, starting from 1. Any interaction initiated by the server should have an even `id`, starting from 2.
-
-The object may contain further keys, which will be determined by message type.
-
-Versioning
-----------
-
-Backwards-incompatible changes, if needed, will be made by incrementing the major version number. A client seeing a major version number it does not recognize or support must close the connection and not attempt any further interaction, and report an error.
-
-The minor version number is incremented for backwards-compatible changes. A client may proceed safely with a higher minor version number of the protocol than it knows about. However, it should be prepared to accept and disregard message types that it does not recognize, as well as any keys in an object (encoded using MessagePack) that it does not recognize.
-
-The client can use the minor version number to understand what features are supported by the remote MoarVM instance.
-
-The MoarVM instance must disregard keys in a MessagePack object that it does not understand. For message types that it does not recognize, it must send a message of type "Message Type Not Understood" (format defined below); the connection should be left intact by MoarVM, and the client can decide how to proceed.
-
-Security considerations
------------------------
-
-Any client connected to the debug protocol will be able to perform remote code execution using the running MoarVM instance. Therefore, MoarVM must only bind to `localhost` by default. It may expose an option to bind to further interfaces, but should display a warning about the dangers of this option.
-
-Remote debugging should be performed by establishing a secure tunnel from the client to the server, for example using SSH port forwarding. This provides both authentication and protection against tampering with messages.
-
-Message types
--------------
+MESSAGE TYPES
+=============
 
 All messages defined here, unless stated otherwise, are supported in major version 1, minor version 0, of the protocol (also known as `1.0`).
 
@@ -467,226 +398,265 @@ The `frames` key contains an array of hashes that contains the stacktrace after 
 
 ### Release Handles (24)
 
-Handles are integers that are mapped to an object living inside of the VM. For so long as the handle is alive, the object will be kept alive by being in the handles mapping table. Therefore, it is important that, when using any instructions that involve handles, they are released afterwards. Otherwise, the debug client can induce a managed memory leak. This command is confirmed with an Operation Successful message.
+Handles are integers that are mapped to an object living inside of the VM. For so long as the handle is alive, the object will be kept alive by being in the handles mapping table.
+
+Therefore, it is important that, when using any instructions that involve handles, they are released afterwards when they are not needed anymore. Otherwise the client can induce a managed memory leak.
+
+The `handles` key should be specified with an array of integers matching the handles to be released.
+
+Responds with an "Operation Successful" message if all specified handles were successfully released.
 
 ```raku
 {
-  type => 24,
-  id => $id,
-  handles => [42, 100]
+  type    => 24,        # MT_ReleaseHandles
+  id      => $id,
+  handles => @array     #  e.g. [42, 100]
 }
 ```
 
 ### Handle Result (25)
 
-This is a common response message send by MoarVM for requests that ask for an object handle. The ID will match that of the request. Remember to release handles when the debug client no longer needs them by sending a Release Handles message. The `0` handle represents the VM Null value.
+Response for requests that ask for an object handle. The ID will match that of the request. The value `0` represents the `VMNull` value.
 
 ```raku
 {
-  type => 25,
-  id => $id,
-  handle => 42
+  type   => 25,         # MT_HandleResult
+  id     => $given-request-id,
+  handle => $integer    # e.g. 42
 }
 ```
 
 ### Context Handle (26)
 
-Sent by the client to allocate a context object handle for the specified frame (indicated by the depth relative to the topmost frame on the callstack, which is frame 0) and thread. This can only be used on a thread that is suspended. A context handle is just an object handle, where the object happens to have the MVMContext REPR, and the result is delivered as a Handle Result message.
+Request to allocate a context object handle for the specified frame (indicated by the depth relative to the topmost frame on the callstack, which is frame 0) and thread.
+
+This can only be used on a thread that is suspended. A context handle is just an object handle, where the object happens to have the `MVMContext` REPR.
+
+Followed by a "Handle Result" response.
 
 ```raku
 {
-  type => 26,
-  id => $id,
-  thread => 1,
-  frame => 0
+  type   => 26,         # MT_ContextHandle
+  id     => $new-request-id,
+  thread => $thread-id    # e.g. 1
+  frame  => $frame-index  # e.g. 0
 }
 ```
 
 ### Context Lexicals Request (27)
 
-Sent by the client to request the values of lexicals in a given context. The `handle` key must be a context handle. The response comes as a Context Lexicals Response message.
+Request the values of lexicals in a given context, followed by a "Context Lexicals" response.
+
+The `handle` key must be a context handle.
 
 ```raku
 {
-  type => 27,
-  id => $id,
-  handle => 1234
+  type   => 27,         # MT_ContextLexicalsRequest
+  id     => $new-request-id,
+  handle => $handle-id  # e.g. 1234
 }
 ```
 
 ### Context Lexicals Response (28)
 
-Contains the results of introspecting a context. For natively typed values, the value is included directly in the response. For object lexicals, an object handle will be allocated for each one. This will allow for further introspection of the object; take care to release it. The debug name of the type is directly included, along with whether it's concrete (as opposed to a type object) and a container type that could be decontainerized. The `kind` key may be one of `obj`, `int`, `num`, or `str`.
+Response containing the results of introspecting a context. The `lexicals` key contains a hash of hashes, in which the inner hash has information about the lexicals in that context, with the name of the lexical as the key.
+
+For natively typed values, the value is included directly in the response.
+
+For object lexicals, a new object handle will be allocated for each object encountered. This will allow for further introspection of the object (always make sure to release the associated handles if the object is no longer needed).
+
+The debug name of the type is directly included in the `type` key, along with whether it's concrete (as opposed to a type object) and a container type that could be decontainerized.
+
+The `kind` key may be one of "int", "num", or "str" (for native values) or "obj" for objects.
 
 ```raku
 {
-  type => 28,
-  id => $id,
+  type     => 28,       # MT_ContextLexicalsResponse
+  id       => $given-request-id,
   lexicals => {
-            "$x => {
-                "kind => "obj",
-                "handle => 1234,
-                "type => "Scalar",
-                "concrete => true,
-                "container => true
-            },
-            "$i => {
-                "kind => "int",
-                "value => 42
-            },
-            "$s => {
-                "kind => "str",
-                "value => "Bibimbap"
-            }
-        }
+    '$x' => {
+      kind      => "obj",
+      handle    => $handle,    # e.g. 1234
+      type      => $type,      # e.g. "Scalar"
+      concrete  => $concrete,  # True or False
+      container => $container  # True or False
+    },
+    '$i' => {
+      kind  => "int",
+      value => 42
+    },
+    '$s' => {
+      kind  => "str",
+      value => "Bibimbap"
+    }
+  }
 }
 ```
 
 ### Outer Context Request (29)
 
-Used by the client to gets a handle to the outer context of the one passed. A Handle Result message will be sent in response. The null handle (0) will be sent if there is no outer.
+Request a handle to the outer context of the context for which the handle is being passed, followed by a "Handle Result" response.
+
+The null handle (`0`) will be given if there is no outer context.
 
 ```raku
 {
-  type => 29,
-  id => $id,
-  handle => 1234
+  type   => 29,         # MT_OuterContextRequest
+  id     => $new-request-id,
+  handle => $handle     # e.g. 1234
 }
 ```
 
 ### Caller Context Request (30)
 
-Used by the client to gets a handle to the caller context of the one passed. A Handle Result message will be sent in response. The null handle (0) will be returned if there is no caller.
+Request to create a handle for the caller context of the context of which the handle is being passed, followed by a "Handle Result" response.
+
+The null handle (`0`) will be given if there is no outer caller.
 
 ```raku
 {
-  type => 30,
-  id => $id,
-  handle => 1234
+  type   => 30,         # MT_CallerContextRequest
+  id     => $new-request-id,
+  handle => $handle     # e.g. 1234
 }
 ```
 
 ### Code Object Handle (31)
 
-Sent by the client to allocate a handle for the code object of the specified frame (indicated by the depth relative to the topmost frame on the callstack, which is frame 0) and thread. This can only be used on a thread that is suspended. If there is no high-level code object associated with the frame, then the null handle (0) will be returned. The response is delivered as a Handle Result message.
+Request a handle for the code object of the specified frame (indicated by the depth relative to the topmost frame on the callstack, which is frame 0) and thread ID, followed by a "Handle Result" response.
+
+This can only be used on a thread that is suspended.
+
+If there is no high-level code object associated with the frame, then the null handle (`0`) will be given.
 
 ```raku
 {
-  type => 31,
-  id => $id,
-  thread => 1,
-  frame => 0
+  type   => 31,         # MT_CodeObjectHandle
+  id     => $new-request-id,
+  thread => $thread-id,   # e.g. 1
+  frame  => $frame-index  # e.g. 0
 }
 ```
 
 ### Object Attributes Request (32)
 
-Used by the client to introspect the attributes of an object. The response comes as an Object Attributes Response message.
+Request information about the attributes of an object by its given handle, followed by an "Object Attributes" response.
 
 ```raku
 {
-  type => 32,
-  id => $id,
-  handle => 1234
+  type   => 32,         # MT_ObjectAttributesRequest
+  id     => $new-request-id,
+  handle => $handle     # e.g. 1234
 }
 ```
 
 ### Object Attributes Response (33)
 
-Contains the results of introspecting the attributes of an object. If the object cannot have any attributes, the `attributes` key will be an empty array. For natively typed attributes, the value is included directly in the response. For object attributes, an object handle will be allocated for each one. This will allow for further introspection of the object; take care to release it. The debug name of the type is directly included, along with whether it's concrete (as opposed to a type object) and a container type that could be decontainerized. The `kind` key may be one of `obj`, `int`, `num`, or `str`. Since attributes with the same name may exist at multiple inheritance levels, an array is returned with the debug name of the type at that level under the `class` key.
+Response containing the information about the attributes of an object (specified by its handle in a "Object Attributes" request).
+
+The `attributes` key contains a list of hashes with the attribute information. If the object does not have any attributes, then the `attributes` key will be an empty array.
+
+For natively typed attributes, the value is included directly in the response. For object attributes, an object handle will be allocated for each one. This will allow for further introspection of the object.
+
+The debug name of the type is directly included, along with whether it's concrete (as opposed to a type object) and a container type that could be decontainerized.
+
+The <kind> key may be one of "int", "num", or "str" for native values, or "obj" for objest. Since attributes with the same name may exist at multiple inheritance levels, an array is returned with the debug name of the class at that level with the `class` key.
 
 ```raku
 {
-  type => 33,
-  id => $id,
+  type       => 33,     # MT_ObjectAttributesResponse
+  id         => $given-request-id,
   attributes => [
-            {
-                "name => "$!x",
-                "class => "FooBase"
-                "kind => "obj",
-                "handle => 1234,
-                "type => "Scalar",
-                "concrete => true,
-                "container => true
-            },
-            {
-                "name => "$!i",
-                "class => "Foo",
-                "kind => "int",
-                "value => 42
-            }
-        ]
+    {
+      name      => '$!x',
+      class     => $class,     # e.g. "FooBase"
+      kind      => "obj",
+      handle    => $handle,    # e.g. 1235
+      type      => $type,      # e.g. "Scalar"
+      concrete  => $concrete,  # True or False
+      container => $container  # True or False
+    },
+    {
+      name  => '$!i',
+      class => $class,  # e.g. "Foo"
+      kind  => "int",
+      value => 42
+    }
+  ]
 }
 ```
 
 ### Decontainerize Handle (34)
 
-Used to decontainerize a value in a container (such as a Raku `Scalar`). The handle to the object that results is returned in a Handle Result message. If this is not a container type, or if an exception occurs when trying to do the decontainerization, an Error Processing Message response will be sent by MoarVM instead. A target thread to perform this operation on is required, since it may be required to run code (such as a `Proxy`); the thread must be suspended at the point this request is issued, and will be returned to suspended state again after the decontainerization has taken place. Note that breakpoints may be hit and will be fired during this operation.
+Request a handle for the decontainerized object indicated by its handle, followed by a "Handle Result" response.
+
+Respond with an "Error Processing" response if the indicated object is not a container type, or if an exception occurred when trying to do the decontainerization.
+
+A target thread to perform this operation on is required, since it may be required to run code (such as code inside a `Proxy` container). The thread must be suspended at the point the request made, and will be returned to suspended state again after the decontainerization has taken place and a new handle was created.
+
+Note that breakpoints may be hit and will be fired during this operation.
 
 ```raku
 {
-  type => 34,
-  id => $id,
-  thread => 1,
-  handle => 1234
-}
-```
-
-### Find Method (35)
-
-**NOTE**: This request is no longer supported by newer MoarVM releases since the conversion to the new dispatch system (`new-disp`); current releases will send Error Processing Message instead of the following behavior.
-
-Used by the client to find a method on an object that it has a handle to. The handle to the method that results is returned in a Handle Result message, with the null object handle (0) indicating no method found. If an exception occurs when trying to do the method resolution, an Error Processing Message response will be sent by MoarVM instead. A target thread to perform this operation on is required, since it may be required to run code (such as `find_method`) in a custom meta-object); the thread must be suspended at the point this request is issued, and will be returned to suspended state again after the lookup has taken place. Note that breakpoints may be hit and will be fired during this operation.
-
-```raku
-{
-  type => 35,
-  id => $id,
-  thread => 1,
-  handle => 1234,
-  name => "frobify",
+  type   => 34,         # MT_DecontainerizeHandle
+  id     => $new-request-id,
+  thread => $thread-id, # e.g. 1
+  handle => $handle     # e.g. 1234
 }
 ```
 
 ### Invoke (36)
 
-Used by the client to invoke an object that it has a handle to, which should be some kind of code object. The arguments may be natives or other objects that the client has a handle for. The results will be returned in an Invoke Result message. A target thread to perform this operation on is required. The thread must be suspended at the point this request is issued, and will be returned to suspended state again after the lookup has taken place. Note that breakpoints may be hit and will be fired during this operation.
+Request invocation of a code object (as indicated by its handle), followed by an "Invoke Result" response.
 
-Named arguments require a "name" entry in the argument's map that gives a string.
+The `arguments` key should contain a (possibly empty) array of hashes, one for each argument.
+
+Arguments may be native values or other objects specified by their `handle`. Named arguments require a `name` key with the name of the named argument.
+
+A target thread to perform this operation on is required. The thread must be suspended at the point this request is made, and will be returned to suspended state again after the execution has taken place.
+
+Note that breakpoints may be hit and will be fired during this operation.
 
 ```raku
 {
-  type => 36,
-  id => $id,
-  thread => 1,
-  handle => 1235,
+  type      => 36,      # MT_Invoke
+  id        => $new-request-id,
+  thread    => $thread-id,   # e.g. 1
+  handle    => $code-hande,  # e.g. 1235,
   arguments => [
-            {
-                "kind => "obj",
-                "handle => 1234
-            },
-            {
-                "kind => "str",
-                "value => "Bulgogi"
-            }
-        ]
+    {
+      kind   => "obj",
+      handle => $handle  # e.g. 1234
+    },
+    {
+      kind  => "str",
+      name  => "frobnicate",
+      value => "Bulgogi"
+    }
+  ]
 }
 ```
 
 ### Invoke Result (37)
 
-Contains the result of an Invoke message. If the result was of an object type then a handle to it will be returned. If the invoke resulted in an exception, then the `crashed` key will be set to a true value, and the `result` handle will point to the exception object instead. Object result example:
+Response to an "Invoke" request with the result in the `result` key.
+
+If the result was not a native value, then a handle to the object will be created and returned in the `handle` key.
+
+If the invocation resulted in an exception, then the `crashed` key will be set to a true value: the `result` key will then be about the `Exception` object instead.
+
+Object result example:
 
 ```raku
 {
-  type => 37,
-  id => $id,
-  crashed => false,
-  kind => "obj",
-  handle => 1234,
-  obj_type => "Int",
-  concrete => true,
-  container => false
+  type      => 37,      # MT_InvokeResult
+  id        => $given-request-id,
+  crashed   => False,
+  kind      => "obj",
+  handle    => $handle,    # e.g. 1256
+  obj_type  => $obj_type,  # e.g. "Int",
+  concrete  => $concrete,  # True or False
+  container => $container  # True or False
 }
 ```
 
@@ -694,11 +664,11 @@ Native int result example:
 
 ```raku
 {
-  type => 37,
-  id => $id,
-  crashed => false,
-  kind => "int",
-  value => 42
+  type    => 37,        # MT_InvokeResult
+  id      => $given-request-id,
+  crashed => False,
+  kind    => "int",
+  value   => 42
 }
 ```
 
@@ -706,135 +676,134 @@ Exception result:
 
 ```raku
 {
-  type => 37,
-  id => $id,
-  crashed => true,
-  kind => "obj",
-  handle => 1234,
-  obj_type => "X::AdHoc",
-  concrete => true,
-  container => false
+  type      => 37,      # MT_InvokeResult
+  id        => $given-request-id,
+  crashed   => True,
+  kind      => "obj",
+  handle    => $handle,    # e.g. 1256
+  obj_type  => "X::AdHoc",
+  concrete  => True,
+  container => False
 }
 ```
 
 ### Unhandled Exception (38)
 
-This message is sent by MoarVM when an unhandled exception occurs. All threads will be suspended. A handle to the exception object is included, together with the thread it occurred on and the stack trace of that thread. So far as it is able to do so, MoarVM will allow operations such as introspecting the context, resolving methods, decontainerizing values, and invoking code.
+Unsollicited response when an unhandled exception occurs.
+
+All threads will be suspended. A handle to the exception object is included in the `handle` key, together with the thread ID it occurred on and the stack trace of that thread.
+
+The `frames` key contains an array of hashes with information of each frame, similar to the "Stack Trace" response.
+
+The VM is expected toi still allow operations such as introspecting the context, decontainerizing values, and invoking code.
 
 ```raku
 {
-  type => 38,
-  id => $id,
-  thread => 1,
-  handle => 1234,
+  type   => 38,         # MT_UnhandledException
+  id     => $given-request-id,
+  thread => $thread-id, # e.g. 1
+  handle => $handle,    # 1278,
   frames => [
-            {
-                "file => "path/to/source/file",
-                "line => 22,
-                "bytecode_file => "path/to/bytecode/file",
-                "name => "some-method",
-                "type => "Method"
-            },
-            {
-                "file => "path/to/source/file",
-                "line => 12,
-                "bytecode_file => "path/to/bytecode/file",
-                "name => "",
-                "type => "Block"
-            }
-        ]
-}
-```
-
-### Operation Unsuccessful (39)
-
-A generic message sent by MoarVM if something went wrong while handling a request. This message is not in current use; Error Processing Message (1) will be sent instead (as that includes a reason message).
-
-```raku
-{
-  type => 39,
-  id => $id
+    {
+      file          => "path/to/source/file",
+      line          => 22,
+      bytecode_file => "path/to/bytecode/file",
+      name => "some-method",
+      type => "Method"
+    },
+    {
+      file          => "path/to/source/file",
+      line          => 12,
+      bytecode_file => "path/to/bytecode/file",
+      name          => "",
+      type          => "Block"
+    }
+  ]
 }
 ```
 
 ### Object Metadata Request (40)
 
-Used by the client to get additional information about an object that goes beyond its actual attributes. Can include miscellaneous details from the REPRData and the object's internal state if it's concrete.
+Request additional (meta-)information about an object (by its handle) that goes beyond its actual attributes, followed by a "Object Metadata" response.
+
+Can include miscellaneous details from the REPRData and the object's internal state if it's concrete.
 
 Additionally, all objects that have positional, associative, or attribute features will point that out in their response.
 
 ```raku
 {
-  type => 40,
-  id => $id,
-  handle => 1234
+  type   => 40,         # MT_ObjectMetadataRequest
+  id     => $new-request-id,
+  handle => $handle     # e.g 1345
 }
 ```
 
 ### Object Metadata Response (41)
 
-Contains the results of introspecting the metadata of an object.
+Response to an "Object Metadata" request, with the results in the `metadata` key (which contains a hash).
 
-Every object has `reprname`. All concrete objects have `size` and `unmanaged_size` fields.
+The `reprname` key contains name of the REPR.
 
-Objects also include `positional_elems` and `associative_elems` for objects that have positional and/or associative features.
+All concrete objects have `size` and `unmanaged_size` keys (in bytes).
 
-`pos_features`, `ass_features`, and `attr_features` inform the client which of the requests 42 ("Object Positionals Request"), 44 ("Object Associatives Request"), or 32 ("Object Attributes Request") will give useful results.
+The `positional_elems` and `associative_elems` keys contain the number of elements for objects that have `Positional` and/or associative features.
+
+The `pos_features`, `ass_features`, and `attr_features` keys indicate which of the "Object Positionals Request (42)", "Object Associatives Request (44)"), or "Object Attributes Request (32)" will give useful results.
 
 ```raku
 {
-  type => 41,
-  id => $id,
+  type     => 41,       # MT_ObjectMetadataResponse
+  id       => $given-request-id,
   metadata => {
-            "reprname => "VMArray",
-            "size => 128,
-            "unmanaged_size => 1024,
+    reprname       => "VMArray",
+    size           => 128,
+    unmanaged_size => 1024,
 
-            "vmarray_slot_type => "num32",
-            "vmarray_elem_size => 4,
-            "vmarray_allocated => 128,
-            "vmarray_offset => 40,
+    vmarray_slot_type => "num32",
+    vmarray_elem_size => 4,
+    vmarray_allocated => 128,
+    vmarray_start     => 40,
 
-            "positional_elems => 12,
+    positional_elems => 12,
 
-            "pos_features => true,
-            "ass_features => false,
-            "attr_features => false,
-        },
+    pos_features  => $pos_features,  # True or False
+    ass_features  => $ass_features,  # True or False
+    attr_features => $attr_features  # True or False
+  }
 }
 ```
 
 ### Object Positionals Request (42)
 
-Used by the client to get the contents of an object that has positional features, like an array.
+Request to obtain information about a `Positional` object (such as an array) indicated by its handle, followed by an "Object Positionals" response.
 
 ```raku
 {
-  type => 42,
-  id => $id,
-  handle => 12345
+  type   => 42,         # MT_ObjectPositionalsRequest
+  id     => $new-request-id,
+  handle => $handle     # e.g. 12345
 }
 ```
 
 ### Object Positionals Response (43)
 
-The `kind` field can be "int", "num", "str" for native arrays, or "obj" for object arrays.
+Response to an "Object Positionals" request, with the `contents` key containing a list of native values, or a list of hashes.
 
-In the case of an object array, every entry in the `contents` field will be a map with keys `type`, `handle`, `concrete`, and `container`.
+The `kind` key contains "int", "num", "str" for native arrays, or "obj" for object arrays.
 
-For native arrays, the array contents are sent as their corresponding messagepack types.
+In the case of an object array, every hash contains `type`, `handle`, `concrete`, and `container` keys, just as in the "Context Lexicals" response.
 
 Native contents:
 
 ```raku
 {
-  type => 43,
-  id => $id,
-  kind => "int",
-  start => 0,
+  type     => 43,       # MT_ObjectPositionalsResponse
+  id       => $given-request-id,
+  kind     => "int",
+  start    => 0,
   contents => [
-            1, 2, 3, 4, 5, 6
-        ]
+    1, 2, 3, 4, 5, 6
+  ]
 }
 ```
 
@@ -842,144 +811,215 @@ Object contents:
 
 ```raku
 {
-  type => 43,
-  id => $id,
-  kind => "obj",
-  start => 0,
+  type     => 43,       # MT_ObjectPositionalsResponse
+  id       => $id,
+  kind     => "obj",
+  start    => 0,
   contents => [
-            {
-                "type => "Potato",
-                "handle => 9999,
-                "concrete => true,
-                "container => false
-            },
-            {
-                "type => "Noodles",
-                "handle => 10000,
-                "concrete => false,
-                "container => false
-             }
-         ]
-     }
+    {
+      type      => "Potato",
+      handle    => $handle,  # e.g. 9999
+      concrete  => True,
+      container => False
+    },
+    {
+      type      => "Noodles",
+      handle    => $handle,  # e.g. 10000
+      concrete  => False,
+      container => False
+    }
+  ]
+}
 ```
 
 ### Object Associatives Request (44)
 
-Used by the client to get the contents of an object that has associative features, like a hash.
+Request to obtain information about a `Associative` object (such as a hash) indicated by its handle, followed by an "Object Associatives" response.
 
 ```raku
 {
-  type => 44,
-  id => $id,
-  handle => 12345
+  type   => 44,         # MT_ObjectAssociativesRequest
+  id     => $new-request-id,
+  handle => $handle  # e.g. 12376
 }
 ```
 
 ### Object Associatives Response (45)
 
-All associative `contents` are of `kind` "obj", and are sent as an outer map with string keys. Each outer value is an inner map with `type`, `handle`, `concrete`, and `container` keys, similar to Object Positionals Response (43).
+Response to an "Object Associatives" request, with the `contents` key containing a hash of hashes always containing information about objects (so no native values).
+
+The key is the key as used in the `Associative` object, and the value contains `type`, `handle`, `concrete`, and `container` keys, just as in the "Context Lexicals" response.
 
 ```raku
 {
-  type => 45,
-  id => $id,
-  kind => "obj"
+  type     => 45,       # MT_ObjectAssociativesResponse
+  id       => $given-request-id,
+  kind     => "obj"
   contents => {
-            "Hello => {
-                "type => "Poodle",
-                "handle => 4242,
-                "concrete => true,
-                "container => false
-            },
-            "Goodbye => {
-                "type => "Poodle",
-                "handle => 4242,
-                "concrete => true,
-                "container => false
-            }
-        }
+    "Hello" => {
+      type      => "Poodle",
+      handle    => $handle,    # e.g. 4242
+      concrete  => $concrete,  # True or False
+      container => $container  # True or False
+    },
+    "Goodbye" => {
+      type      => "Poodle",
+      handle    => $handle,    # e.g. 4243
+      concrete  => $concrete,  # True or False
+      container => $container  # True or False
+    }
+  }
 }
 ```
 
 ### Handle Equivalence Request (46)
 
-Ask the debugserver to check if handles refer to the same object.
+Request to check a given list of handles (in the `handles` key) to see whether they refer to the same object, followed by a "Handle Equivalence" response.
 
 ```raku
 {
-  type => 46,
-  id => $id,
-  handles => [
-            1, 2, 3, 4, 5, 6, 7
-        ]
+  type    => 46,        # MT_HandleEquivalenceRequest
+  id      => $new-request-id,
+  handles => @handles
 }
 ```
 
 ### Handle Equivalence Response (47)
 
-For any object that is referred to by multiple handles from the request, return a list of all the handles that belong to the given object.
+Response to a "Handle Equivalence" request.
+
+The `classes` key contains a list of lists with handles, in which each inner list contains the ID's of handles that refer to the same object (if there are more than one).
 
 ```raku
 {
-  type => 47,
-  id => $id,
+  type    => 47,        # MT_HandleEquivalenceResponse
+  id      => $given-request-id,
   classes => [
-            [1, 3],
-            [2, 5, 7]
-        ]
+    [1, 3],
+    [2, 5, 7]
+  ]
 }
 ```
 
 ### HLL Symbol Request (48)
 
-MoarVM features a mechanism for objects and types to be registered with an HLL, for example "nqp" or "perl6" or "raku". This request allows you to find the available HLLs, a given HLL's keys, and the value for a given key.
+MoarVM features a mechanism for objects and types to be registered with an HLL, for example "nqp" or "Raku". This request allows you to find the available HLLs, a given HLL's keys, and the value for a given key.
 
-The first two variants will result in an HLL Symbol Response, while the third one will result in a Handle Result message.
-
-Get all HLL names:
+Get all HLL names, followed by a "HLL Symbol" response:
 
 ```raku
 {
-  type => 48,
-  id => $id,
+  type => 48,           # MT_HLLSymbolRequest
+  id   => $new-request-id,
 }
 ```
 
-Get an HLL's symbol names:
+Get an HLL's symbol names, followed by a "HLL Symbol" response:
 
 ```raku
 {
-  type => 48,
-  id => $id,
-  HLL => "nqp"
+  type => 48,           # MT_HLLSymbolRequest
+  id   => $new-request-id,
+  HLL  => $HLL          # e.g. "nqp" or "Raku"
 }
 ```
 
-Get the value for a symbol:
+Get the value for a symbol in a HLL, followed by a "Handle Result" response:
 
 ```raku
 {
-  type => 48,
-  id => $id,
-  HLL => "nqp",
-  name => "
+  type => 48,           # MT_HLLSymbolRequest
+  id   => $new-request-id,
+  HLL  => $HLL          # e.g. "nqp" or "Raku"
+  name => "FOOBAR"
 }
 ```
 
 ### HLL Symbol Response (49)
 
-For cases where the HLL Symbol Request results in a list of strings, i.e. when all HLL names or an HLL's symbols are requested, the HLL Symbol Response will be emitted.
+Response to a "HLL Symbol" request for names (rather than values).
+
+The `keys` key contains either a list of HLL names, or a list of names for a given HLL.
 
 ```raku
 {
   type => 49,
-  id => $id,
+  id   => $given-request-id,
   keys => [
-            "one",
-            "two",
-        ]
+    "one",
+    "two",
+  ]
 }
 ```
+
+MoarVM Remote Debug Protocol Design
+===================================
+
+The MoarVM Remote Debug Protocol is used to control a MoarVM instance over a socket, for the purposes of debugging. The VM must have been started in debug mode for this capability to be available (with the `--debug-port=12345` parameter).
+
+The wire format
+---------------
+
+Rather than invent Yet Another Custom Binary Protocol, the MoarVM remote debug protocol uses [`MessagePack`](https://msgpack.org/) (through the [`Data::MessagePack`](https://raku.land/zef:raku-community-modules/Data::MessagePack) module). This has the advantage of easy future extensibility and existing support from other languages.
+
+The only thing that is not MessagePack is the initial handshake, leaving the freedom to move away from MessagePack in a future version, should there ever be cause to do so.
+
+Since MessagePack is largely just a more compact way to specify JSON, which is essentially a Raku data structure consisting of a hash with keys and values. Therefore all of the messages are show in Raku syntax. This is just for ease of reading: the Raku data structure will be automatically converted to/from MessagePack data on the wire.
+
+### Initial Handshake
+
+Upon receving a connection, MoarVM will immediately send the following **24** bytes if it is willing and able to accept the connection:
+
+  * The string "MOARVM-REMOTE-DEBUG\0" encoded in ASCII
+
+  * A big endian, unsigned, 16-bit major protocol version number - =item big endian, unsigned, 16-bit minor protocol version number
+
+Otherwise, it will send the following response, explaining why it cannot, and then close the connection:
+
+  * The string "MOARVM-REMOTE-DEBUG!" encoded in ASCII
+
+  * A big endian, unsigned, 16-bit length for an error string explaining the rejection (length in bytes)
+
+  * The error string, encoded in UTF-8
+
+A client that receives anything other than a response of this form must close the connection and report an error. A client that receives an error response must report the error.
+
+Otherwise, the client should check if it is able to support the version of the protocol that the server speaks. The onus is on clients to support multiple versions of the protocol should the need arise. See versioning below for more. If the client does not wish to proceed, it should simply close the connection.
+
+If the client is statisfied with the version, it should send:
+
+  * The string "MOARVM-REMOTE-CLIENT-OK\0" encoded in ASCII
+
+For the versions of the protocol defined in this document, all further communication will be in terms of MessagePack messages.
+
+MessagePack envelope
+--------------------
+
+Every exchange using MessagePack must be an object at the top level. The object must always have the following keys:
+
+  * `type` which must have an integer value. This specifies the type of the message. Failing to include this field or failing to have its value be an integer is a protocol error, and any side receiving such a message should terminate the connection.
+
+  * `id` which must have an integer value. This is used to associate a response with a request, where required. Any interaction initiated by the client should have an odd `id`, starting from 1. Any interaction initiated by the server should have an even `id`, starting from 2.
+
+The object may contain further keys, which will be determined by message type.
+
+Versioning
+----------
+
+Backwards-incompatible changes, if needed, will be made by incrementing the major version number. A client seeing a major version number it does not recognize or support must close the connection and not attempt any further interaction, and report an error.
+
+The minor version number is incremented for backwards-compatible changes. A client may proceed safely with a higher minor version number of the protocol than it knows about. However, it should be prepared to accept and disregard message types that it does not recognize, as well as any keys in an object (encoded using MessagePack) that it does not recognize.
+
+The client can use the minor version number to understand what features are supported by the remote MoarVM instance.
+
+The MoarVM instance must disregard keys in a MessagePack object that it does not understand. For message types that it does not recognize, it must send a message of type "Message Type Not Understood" (format defined below); the connection should be left intact by MoarVM, and the client can decide how to proceed.
+
+Security considerations
+-----------------------
+
+Any client connected to the debug protocol will be able to perform remote code execution using the running MoarVM instance. Therefore, MoarVM must only bind to `localhost` by default. It may expose an option to bind to further interfaces, but should display a warning about the dangers of this option.
+
+Remote debugging should be performed by establishing a secure tunnel from the client to the server, for example using SSH port forwarding. This provides both authentication and protection against tampering with messages.
 
 AUTHOR
 ======
