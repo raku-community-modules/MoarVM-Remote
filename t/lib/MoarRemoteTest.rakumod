@@ -3,18 +3,9 @@ use v6.d.PREVIEW;
 use Test;
 use MoarVM::Remote;
 
-use nqp;
-
 sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
-    my $prefix = nqp::backendconfig<prefix>;
-
-    my $moarbinpath = %*ENV<DEBUGGABLE_MOAR_PATH>.?IO // $prefix.IO.add("bin/moar");
-
-    my $nqplibdir = $prefix.IO.add("share/nqp/lib");
-    my $nqpprogpath = $nqplibdir.add("nqp.moarvm");
-
-    my @pre-command  = $moarbinpath.absolute, "--libpath=" ~ $nqplibdir.absolute;
-    my @post-command = $nqpprogpath.absolute, "-e", $code;
+    my @pre-command = (my $nqppath = %*ENV<DEBUGGABLE_NQP_PATH> // "nqp");
+    my @post-command = "-e", $code;
 
     my $supplier = Supplier::Preserving.new;
 
@@ -34,7 +25,7 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
                     die "Address already in use"
                 }
                 when / "Unknown flag --debug-port=" / {
-                    die "MoarVM binary at $moarbinpath doesn't understand debugger flags. Please set the environment variable DEBUGGABLE_MOAR_PATH to a moar binary that does."
+                    die "NQP command at $nqppath doesn't understand debugger flags? Please set the environment variable DEBUGGABLE_NQP_PATH to a nqp command that does."
                 }
                 when / "SORRY" / {
                     die "Program could not be run: $_";
