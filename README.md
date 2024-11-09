@@ -1024,7 +1024,9 @@ Remote debugging should be performed by establishing a secure tunnel from the cl
 AUTHOR
 ======
 
-- Timo Paulssen - Raku Community
+  * Timo Paulssen
+
+  * Raku Community
 
 COPYRIGHT AND LICENSE
 =====================

@@ -452,14 +452,12 @@ class MoarVM::Remote {
 
     method get-available-hlls() {
         self!send-request(MT_HLLSymbolRequest).then({
-            .result.&dd;
             .result<keys> if .result<type> == MT_HLLSymbolResponse
         });
     }
 
     method get-hll-sym-keys(Str $hll) {
         self!send-request(MT_HLLSymbolRequest, :$hll).then({
-            .result.&dd;
             .result<keys> if .result<type> == MT_HLLSymbolResponse
         });
     }
