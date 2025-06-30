@@ -1,6 +1,8 @@
 Revision history for MoarVM::Remote
 
 {{$NEXT}}
+
+0.0.4  2025-06-30T14:20:23+02:00
     - Upped support to protocol level 1.4
     - Future proofed tests by using $*PROGRAM instead of $?FILE
     - Tightened up dependencies
