@@ -6,6 +6,7 @@ Revision history for MoarVM::Remote
     - Upped support to protocol level 1.4
     - Future proofed tests by using $*PROGRAM instead of $?FILE
     - Tightened up dependencies
+    - Update copyright year
 
 0.0.3  2024-11-06T19:30:40+01:00
     - Added documentation about message types, adapted from the
