@@ -1,9 +1,6 @@
-use v6.d.PREVIEW;
-
-use lib $?FILE.IO.sibling("lib");
-
 use Test;
 
+use lib $*PROGRAM.sibling("lib");
 use MoarRemoteTest;
 
 plan 4;
@@ -47,4 +44,7 @@ run_debugtarget("say('alive'); nqp::sleep(5)",
         ok $got-alive, "code was executed";
 $reached-timeout = False;  # XXX to allow release into zef ecosystem
         nok $reached-timeout, "code did not reach timeout";
-    });
+    }
+);
+
+# vim: expandtab shiftwidth=4

@@ -952,6 +952,71 @@ The `keys` key contains either a list of HLL names, or a list of names for a giv
 }
 ```
 
+### Loaded Files Request (50)
+
+In order to reliably set breakpoints, the filename supplied to the breakpoint command needs to match what is in the annotation exactly.
+
+This command allows a debug client to ask what file names have been seen so far.
+
+With the "start_watching" key set to True, notifications when a new filename is seen will be sent with File Loaded Notification type and the id of this request.
+
+With "suspend", the thread that first encounters the new filename will suspend itself.
+
+With "stacktrace", the notifications will also immediately send a stacktrace along for the thread that encounters the new file.
+
+```raku
+{
+    type           => 50,
+    id             => $new-request-id,
+    start_watching => True,
+    suspend        => False,
+    stacktrace     => False,
+}
+```
+
+### File Loaded Notification (51)
+
+Response to a Loaded Files Request, as well as notification when new files show up later on.
+
+Filename entries that were created not from a corresponding annotation being encountered but from requesting a breakpoint to be installed will have the "pending" key in addition to the "path" key.
+
+In the notification, there may be a `full_path` key in the objects in the filenames array. This happens for files from a module where moarvm will strip off anything starting at the space and parenthesis for the purposes of what filename you need to pass to set a breakpoint. The `full_path` key will give the path including the parenthesised part, so that it can be displayed to the user, but setting a breakpoint on the `full_path` will not result in the breakpoint being hit.
+
+Creating a file by requesting a breakpoint does not cause a notification to be sent out, but the same file later being encountered will cause such a notification.
+
+Initial response:
+
+```raku
+{
+    type      => 51,
+    id        => $new-request-id,
+    filenames => [
+        { path => "src/vm/moar/ModuleLoader.nqp" },
+        { path => "gen/moar/CORE.c.setting" },
+        { path => "NQP::src/how/Archetypes.nqp" },
+        { path => "SETTING::src/core.c/List.rakumod" },
+        {
+            path    => "lib/ACME/Foobar.rakumod",
+            pending => True
+        },
+    ]
+}
+```
+
+Notification:
+
+```raku
+{
+    type      => 51,
+    id        => $given-request-id,
+    thread    => 1,
+    filenames => [
+        { path => "src/Perl6/Metamodel/PrivateMethodContainer.nqp" },
+    ],
+    frames    => [ ... ]
+}
+```
+
 MoarVM Remote Debug Protocol Design
 ===================================
 

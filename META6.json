@@ -6,8 +6,8 @@
   "build-depends": [
   ],
   "depends": [
-    "JSON::Fast",
-    "Data::MessagePack"
+    "JSON::Fast:ver<0.19+>:auth<cpan:TIMOTIMO>",
+    "Data::MessagePack:ver<0.1.4+>:auth<zef:raku-community-modules>"
   ],
   "description": "A library for working with the MoarVM remote debugging API",
   "license": "Artistic-2.0",

@@ -274,7 +274,9 @@ sub run_testplan(@plan is copy, $description = "test plan") is export {
                 }
             }
         }
-    };
+    }
 
     }
 }
+
+# vim: expandtab shiftwidth=4

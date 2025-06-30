@@ -1,14 +1,10 @@
-use v6.d.PREVIEW;
-
-use lib $?FILE.IO.sibling("lib");
-
 use Test;
-
 use MoarVM::Remote;
+
+use lib $*PROGRAM.sibling("lib");
 use MoarRemoteTest;
 
 plan 1;
-
 
 Promise.in(10).then: { diag "Did not finish test in 10 seconds. Considering this a failure."; exit 1 }
 
@@ -43,3 +39,5 @@ run_testplan [
     command => Quit => 0,
 ]
 }
+
+# vim: expandtab shiftwidth=4
