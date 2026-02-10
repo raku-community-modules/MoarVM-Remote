@@ -130,8 +130,10 @@ class MoarVM::Remote {
     has Version $.remote-version;
 
     has Supplier $!events-supplier = Supplier::Preserving.new;
-
     has Supply $.events = $!events-supplier.Supply;
+
+    has Supplier $!message-log-supplier = Supplier::Preserving.new;
+    has Supply $.message-log = $!message-log-supplier.Supply;
 
     submethod TWEAK(:$!sock, :$!worker-events) {
         self!start-worker;
@@ -236,6 +238,7 @@ class MoarVM::Remote {
                 if $message<type>:exists {
                     $message<type> = MessageType($message<type>);
                 }
+                $!message-log-supplier.emit: { direction => "receive", message => $message };
                 without $task {
                     dd $message if $!debug;
                     with %!event-suppliers{$message<id>} {
@@ -292,6 +295,7 @@ class MoarVM::Remote {
 
         my %data-to-send = %data, :$id, :$type;
 
+        $!message-log-supplier.emit: { direction => "send", message => %data-to-send };
         my $packed = Data::MessagePack::pack(%data-to-send);
 
         note $packed if $!debug;
