@@ -2,7 +2,8 @@ use Test;
 use MoarVM::Remote;
 
 sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
-    my @pre-command = (my $nqppath = %*ENV<DEBUGGABLE_NQP_PATH> // "nqp");
+    my $nqppath = %*ENV<DEBUGGABLE_NQP_PATH>.?IO // $*EXECUTABLE.parent.add($*DISTRO.is-win() ?? "nqp.exe" !! "nqp");
+    my @pre-command = $nqppath.Str;
     my @post-command = "-e", $code;
 
     my $supplier = Supplier::Preserving.new;
@@ -23,7 +24,7 @@ sub run_debugtarget($code, &checker, :$start-suspended, :$writable) is export {
                     die "Address already in use"
                 }
                 when / "Unknown flag --debug-port=" / {
-                    die "NQP command at $nqppath doesn't understand debugger flags? Please set the environment variable DEBUGGABLE_NQP_PATH to a nqp command that does."
+                    die "NQP binary at $nqppath doesn't understand debugger flags? Please set the environment variable DEBUGGABLE_NQP_PATH to a nqp command that does."
                 }
                 when / "SORRY" / {
                     die "Program could not be run: $_";
