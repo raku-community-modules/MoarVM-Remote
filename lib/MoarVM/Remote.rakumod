@@ -206,8 +206,8 @@ class MoarVM::Remote {
                     if $res.debug {
                         my @full = ([~] @$_).list;
                         if @full > 35 {
-                            say "received:";
-                            .fmt("%x", " ").say for @full.rotor(40 => 0, :partial);
+                            note "received:";
+                            .fmt("%x", " ").note for @full.rotor(40 => 0, :partial);
                         } else {
                             note "received: @full.fmt("%02x", " ")";
                         }
