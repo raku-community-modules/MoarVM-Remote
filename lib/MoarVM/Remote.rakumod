@@ -419,11 +419,11 @@ class MoarVM::Remote {
         })
     }
 
-    method get-filenames() {
-        if $!remote-version before v1.4 {
-            fail "get-filenames requires remote version 1.4 or greater, but remote version is $!remote-version";
+    method get-filenames(:$suspend = False, :$stacktrace = False) {
+        if $!remote-version before v1.5 {
+            fail "get-filenames requires remote version 1.5 or greater, but remote version is $!remote-version";
         }
-        self!send-request(MT_LoadedFilesRequest, :start_watching).then(-> $prom {
+        self!send-request(MT_LoadedFilesRequest, :start_watching, :$suspend, :$stacktrace).then(-> $prom {
             note "result from loaded files request: ", $prom.result.&to-json(:pretty) if $!debug;
             my $result = $prom.result;
             $!filenames-lock.protect({
