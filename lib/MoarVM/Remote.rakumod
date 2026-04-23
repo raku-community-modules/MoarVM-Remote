@@ -430,17 +430,33 @@ class MoarVM::Remote {
                 @!filenames := $result<filenames>.map(*.<path>).Array;
             });
             %!event-suppliers{$result<id>} = my $sup = Supplier::Preserving.new;
-            $sup.Supply.tap({
-                note "notification on the loaded files request supply", $_.raku if $!debug;
+            my $file-with-breakpoint-notifications-supplier = Supplier::Preserving.new;
+            $sup.Supply.tap: -> $file-event {
+                note "notification on the loaded files request supply", $file-event.raku if $!debug;
                 $!filenames-lock.protect({
-                    for .<filenames>.list {
-                        if .<path> !(elem) @!filenames {
-                            @!filenames.push: .<path>;
+                    for $file-event<filenames>.list {
+                        if $file-event<path> !(elem) @!filenames {
+                            @!filenames.push: $file-event<path>;
                         }
                     }
-                })
-            });
-            my %ret = flat @($result.hash), "notifications" => $sup.Supply;
+                });
+
+                if $file-event<breakpoint_id>:exists {
+                    my $filename = $file-event<filenames>[0]<path>;
+                    %!breakpoint-to-event{$filename => 0}.push($file-event<breakpoint_id>);
+                    note "setting up an event supplier for event $file-event<breakpoint_id>" if $!debug;
+                    %!event-suppliers{$file-event<breakpoint_id>} = my $sup = Supplier::Preserving.new;
+                    note "set it up" if $!debug;
+                    my %event-with-supply = flat @($file-event.hash), "breakpoint_notifications" => $sup.Supply;
+                    note "created return value" if $!debug;
+                    $file-with-breakpoint-notifications-supplier.emit: %event-with-supply;
+                }
+                else {
+                    $file-with-breakpoint-notifications-supplier.emit: $file-event;
+                }
+            };
+
+            my %ret = flat @($result.hash), "notifications" => $file-with-breakpoint-notifications-supplier.Supply;
             note %ret.raku if $!debug;
             %ret;
         });
