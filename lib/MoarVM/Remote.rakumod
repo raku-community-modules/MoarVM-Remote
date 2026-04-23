@@ -132,6 +132,9 @@ class MoarVM::Remote {
     has Supplier $!events-supplier = Supplier::Preserving.new;
     has Supply $.events = $!events-supplier.Supply;
 
+    has Supplier $!all-events-supplier = Supplier::Preserving.new;
+    has Supply $.all-events = $!all-events-supplier.Supply;
+
     has Supplier $!message-log-supplier = Supplier::Preserving.new;
     has Supply $.message-log = $!message-log-supplier.Supply;
 
@@ -241,6 +244,8 @@ class MoarVM::Remote {
                 $!message-log-supplier.emit: { direction => "receive", message => $message };
                 without $task {
                     dd $message if $!debug;
+                    $!all-events-supplier.emit($message);
+
                     with %!event-suppliers{$message<id>} {
                         note "An event handler gets a notification" if $!debug;
                         if $_ ~~ Supplier {
