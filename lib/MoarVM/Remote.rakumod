@@ -439,9 +439,9 @@ class MoarVM::Remote {
             $sup.Supply.tap: -> $file-event {
                 note "notification on the loaded files request supply", $file-event.raku if $!debug;
                 $!filenames-lock.protect({
-                    for $file-event<filenames>.list {
-                        if $file-event<path> !(elem) @!filenames {
-                            @!filenames.push: $file-event<path>;
+                    for $file-event<filenames>.list -> $file {
+                        if $file<path> !(elem) @!filenames {
+                            @!filenames.push: $file<path>;
                         }
                     }
                 });
