@@ -132,6 +132,9 @@ class MoarVM::Remote {
     has Supplier $!events-supplier = Supplier::Preserving.new;
     has Supply $.events = $!events-supplier.Supply;
 
+    has Supplier $!all-events-supplier = Supplier::Preserving.new;
+    has Supply $.all-events = $!all-events-supplier.Supply;
+
     has Supplier $!message-log-supplier = Supplier::Preserving.new;
     has Supply $.message-log = $!message-log-supplier.Supply;
 
@@ -241,6 +244,8 @@ class MoarVM::Remote {
                 $!message-log-supplier.emit: { direction => "receive", message => $message };
                 without $task {
                     dd $message if $!debug;
+                    $!all-events-supplier.emit($message);
+
                     with %!event-suppliers{$message<id>} {
                         note "An event handler gets a notification" if $!debug;
                         if $_ ~~ Supplier {
@@ -419,28 +424,44 @@ class MoarVM::Remote {
         })
     }
 
-    method get-filenames() {
-        if $!remote-version before v1.4 {
-            fail "get-filenames requires remote version 1.4 or greater, but remote version is $!remote-version";
+    method get-filenames(:$suspend = False, :$stacktrace = False) {
+        if $!remote-version before v1.5 {
+            fail "get-filenames requires remote version 1.5 or greater, but remote version is $!remote-version";
         }
-        self!send-request(MT_LoadedFilesRequest, :start_watching).then(-> $prom {
+        self!send-request(MT_LoadedFilesRequest, :start_watching, :$suspend, :$stacktrace).then(-> $prom {
             note "result from loaded files request: ", $prom.result.&to-json(:pretty) if $!debug;
             my $result = $prom.result;
             $!filenames-lock.protect({
                 @!filenames := $result<filenames>.map(*.<path>).Array;
             });
             %!event-suppliers{$result<id>} = my $sup = Supplier::Preserving.new;
-            $sup.Supply.tap({
-                note "notification on the loaded files request supply", $_.raku if $!debug;
+            my $file-with-breakpoint-notifications-supplier = Supplier::Preserving.new;
+            $sup.Supply.tap: -> $file-event {
+                note "notification on the loaded files request supply", $file-event.raku if $!debug;
                 $!filenames-lock.protect({
-                    for .<filenames>.list {
-                        if .<path> !(elem) @!filenames {
-                            @!filenames.push: .<path>;
+                    for $file-event<filenames>.list -> $file {
+                        if $file<path> !(elem) @!filenames {
+                            @!filenames.push: $file<path>;
                         }
                     }
-                })
-            });
-            my %ret = flat @($result.hash), "notifications" => $sup.Supply;
+                });
+
+                if $file-event<breakpoint_id>:exists {
+                    my $filename = $file-event<filenames>[0]<path>;
+                    %!breakpoint-to-event{$filename => 0}.push($file-event<breakpoint_id>);
+                    note "setting up an event supplier for event $file-event<breakpoint_id>" if $!debug;
+                    %!event-suppliers{$file-event<breakpoint_id>} = my $sup = Supplier::Preserving.new;
+                    note "set it up" if $!debug;
+                    my %event-with-supply = flat @($file-event.hash), "breakpoint_notifications" => $sup.Supply;
+                    note "created return value" if $!debug;
+                    $file-with-breakpoint-notifications-supplier.emit: %event-with-supply;
+                }
+                else {
+                    $file-with-breakpoint-notifications-supplier.emit: $file-event;
+                }
+            };
+
+            my %ret = flat @($result.hash), "notifications" => $file-with-breakpoint-notifications-supplier.Supply;
             note %ret.raku if $!debug;
             %ret;
         });
