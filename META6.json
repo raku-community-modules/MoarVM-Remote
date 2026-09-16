@@ -5,20 +5,29 @@
   ],
   "build-depends": [
   ],
-  "depends": [
-    "JSON::Fast:ver<0.19+>:auth<cpan:TIMOTIMO>",
-    "Data::MessagePack:ver<0.1.4+>:auth<zef:raku-community-modules>"
-  ],
+  "depends": {
+    "runtime": {
+      "requires": [
+        "JSON::Fast:ver<0.21+>:auth<zef:timo>",
+        "Data::MessagePack:ver<0.1.4+>:auth<zef:raku-community-modules>"
+      ]
+    }
+  },
   "description": "A library for working with the MoarVM remote debugging API",
   "license": "Artistic-2.0",
   "name": "MoarVM::Remote",
-  "perl": "6.c",
   "provides": {
     "MoarVM::Remote": "lib/MoarVM/Remote.rakumod"
   },
+  "raku": "6.c",
   "resources": [
   ],
   "source-url": "https://github.com/raku-community-modules/MoarVM-Remote.git",
+  "support": {
+    "bugtracker": "https://github.com/raku-community-modules/MoarVM-Remote/issues",
+    "email": "community@raku.org",
+    "source": "https://github.com/raku-community-modules/MoarVM-Remote.git"
+  },
   "tags": [
     "Debug",
     "MoarVM",

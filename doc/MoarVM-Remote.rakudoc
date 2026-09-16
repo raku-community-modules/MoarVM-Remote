@@ -7,9 +7,7 @@ MoarVM::Remote - A library for working with the MoarVM remote debugging API
 =head1 SYNOPSIS
 
 =begin code :lang<raku>
-
 # see examples in the test-suite for now
-
 =end code
 
 =head1 DESCRIPTION
@@ -47,12 +45,10 @@ Response indicating that a request was B<not> understood, with the
 ID of the request that was not understood.
 
 =begin code :lang<raku>
-
 {
   type => 0,            # MT_MessageTypeNotUnderstood
   id   => $given-request-id
 }
-
 =end code
 
 =head3 Error Processing Message (1)
@@ -62,13 +58,11 @@ a request, with the ID of the request that was not understood. The
 C<reason> key should be a string explaining why.
 
 =begin code :lang<raku>
-
 {
   type   => 1,          # MT_ErrorProcessingMessage
   id     => $given-request-id,
   reason => $reason     # e.g. "Program already terminated"
 }
-
 =end code
 
 =head3 Operation Successful (2)
@@ -78,12 +72,10 @@ Response to acknowledge that a request was successfully performed
 be given.
 
 =begin code :lang<raku>
-
 {
   type => 2,            # MT_OperationSuccessful
   id   => $given-request-id
 }
-
 =end code
 
 =head3 Is Execution Suspended Request (3)
@@ -92,12 +84,10 @@ Request to check whether execution of all user threads are
 currently suspended.
 
 =begin code :lang<raku>
-
 {
   type => 3,            # MT_IsExecutionSuspendedRequest
   id   => $new-request-id
 }
-
 =end code
 
 =head3 Is Execution Suspended Response (4)
@@ -107,13 +97,11 @@ as observed by the C<suspended> key being set to either C<True>
 or C<False>.
 
 =begin code :lang<raku>
-
 {
   type      => 4,       # MT_IsExecutionSuspendedResponse
   id        => $given-request-id,
   suspended => $suspended
 }
-
 =end code
 
 =head3 Suspend All (5)
@@ -123,12 +111,10 @@ Response will always be "Operation Successful" regardless of
 whether the user threads had been suspended already or not.
 
 =begin code :lang<raku>
-
 {
   type => 5,            # MT_SuspendAll
   id   => $new-request-id
 }
-
 =end code
 
 =head3 Resume All (6)
@@ -139,12 +125,10 @@ message regardless of whether the execution of user threads had
 been resumed already or not.
 
 =begin code :lang<raku>
-
 {
   type => 6,            # MT_ResumeAll
   id   => $new-request-id
 }
-
 =end code
 
 =head3 Suspend One (7)
@@ -158,13 +142,11 @@ already or not.  If the thread ID was not recognized, then the
 response will be "Error Processing Message".
 
 =begin code :lang<raku>
-
 {
   type   => 7,          # MT_SuspendOne
   id     => $new-request-id,
   thread => $thread-id
 }
-
 =end code
 
 =head3 Resume One (8)
@@ -178,13 +160,11 @@ already or not.  If the thread ID was not recognized, then the
 response will be "Error Processing Message".
 
 =begin code :lang<raku>
-
 {
   type   => 8,          # MT_ResumeOne
   id     => $new-request-id,
   thread => $thread-id
 }
-
 =end code
 
 =head3 Thread Started (9)
@@ -205,7 +185,6 @@ finished while C<True> means that the thread will be killed when
 the main thread of the process terminates.
 
 =begin code :lang<raku>
-
 {
   type         => 9,    # MT_ThreadStarted
   id           => $an-even-id,
@@ -213,7 +192,6 @@ the main thread of the process terminates.
   native_id    => $OS_thread_id,
   app_lifetime => $app_lifetime
 }
-
 =end code
 
 =head3 Thread Ended (10)
@@ -222,13 +200,11 @@ Unsolicited response whenever a thread terminates. The client can
 simply disregard it if it has no interest in this information.
 
 =begin code :lang<raku>
-
 {
   type   => 10,         # MT_ThreadEnded
   id     => $an-even-id,
   thread => $thread-id
 }
-
 =end code
 
 =head3 Thread List Request (11)
@@ -238,12 +214,10 @@ This request may be sent at any time, whether or not the threads are
 suspended.
 
 =begin code :lang<raku>
-
 {
   type => 11,           # MT_ThreadListRequest
   id   => $new-request-id
 }
-
 =end code
 
 =head3 Thread List Response (12)
@@ -256,7 +230,6 @@ suspended, and the number of locks it is currently holding.
 The C<name> key was added in version 1.2.
 
 =begin code :lang<raku>
-
 {
   type => 12,           # MT_ThreadListResponse
   id   => $given-request-id,
@@ -279,7 +252,6 @@ The C<name> key was added in version 1.2.
     }
   ]
 }
-
 =end code
 
 =head3 Thread Stack Trace Request (13)
@@ -289,13 +261,11 @@ thread is suspended; an "Error Processing Message" response will be
 returned otherwise.
 
 =begin code :lang<raku>
-
 {
   type   => 13,         # MT_ThreadStackTraceRequest
   id     => $new-request-id,
   thread => $thread_id  # e.g. 3
 }
-
 =end code
 
 =head3 Thread Stack Trace Response (14)
@@ -314,7 +284,6 @@ The C<type> key is the debug name of the type of the code object,
 or C<Nil> if there is none.
 
 =begin code :lang<raku>
-
 {
   type   => 14,           # MT_ThreadStackTraceResponse
   id     => $given-request-id,
@@ -342,7 +311,6 @@ or C<Nil> if there is none.
     }
   ]
 }
-
 =end code
 
 =head3 Set Breakpoint Request (15)
@@ -365,7 +333,6 @@ while with C<suspend> key set to C<False> it can be useful for features
 like "capture a stack trace every time foo is called".
 
 =begin code :lang<raku>
-
 {
   type       => 15,     # MT_SetBreakpointRequest
   id         => $new-request-id,
@@ -374,7 +341,6 @@ like "capture a stack trace every time foo is called".
   suspend    => $suspend,    # e.g. True
   stacktrace => $stacktrace  # e.g. False
 }
-
 =end code
 
 =head3 Set Breakpoint Confirmation (16)
@@ -387,13 +353,11 @@ will be sent before any breakpoint notifications; the ID will match
 the ID specified in the breakpoint request.
 
 =begin code :lang<raku>
-
 {
   type => 16,           # MT_SetBreakpointConfirmation
   id   => $given-request-id,
   line => $line  # e.g. 16
 }
-
 =end code
 
 =head3 Breakpoint Notification (17)
@@ -407,14 +371,12 @@ of hashesh describing the stack frames, formatted as in the
 "Thread Stack Trace Response" message type.
 
 =begin code :lang<raku>
-
 {
   type   => 17,         # MT_BreakpointNotification
   id     => $given-request-id,
   thread => $thread-id, # e.g. 1
   frames => $frames     # Nil or [ ... ]
 }
-
 =end code
 
 =head3 Clear Breakpoint (18)
@@ -425,14 +387,12 @@ Confirmation" message). This will be followed by an "Operation
 Successful" response after clearing the breakpoint.
 
 =begin code :lang<raku>
-
 {
   type => 18,           # MT_ClearBreakpoint
   id   => $new-request-id,
   file => $file,  # e.g. "path/to/source/file",
   line => $line   # e.g. 123
 }
-
 =end code
 
 =head3 Clear All Breakpoints (19)
@@ -442,12 +402,10 @@ followed by an "Operation Successful" response after clearing all
 breakpoints.
 
 =begin code :lang<raku>
-
 {
   type => 19,           # MT_ClearAllBreakpoints
   id   => $new-request-id
 }
-
 =end code
 
 =head3 Single Step (aka. Step Into) (20)
@@ -461,13 +419,11 @@ returned to suspended state after the step has taken place,
 followed by a "Step Completed" response.
 
 =begin code :lang<raku>
-
 {
   type   => 20,         # MT_StepInto
   id     => $new-request-id,
   thread => $thread-id  # e.g. 1
 }
-
 =end code
 
 =head3 Step Over (21)
@@ -479,13 +435,11 @@ after the steps have taken place, followed by a "Step Completed"
 response.
 
 =begin code :lang<raku>
-
 {
   type   => 21,         # MT_StepOver
   id     => $new-request-id,
   thread => $thread-id  # e.g. 1
 }
-
 =end code
 
 =head3 Step Out (22)
@@ -495,13 +449,11 @@ specified frame. After which the thread will be returned to suspended
 state, followed by a "Step Completed" response.
 
 =begin code :lang<raku>
-
 {
   type   => 22,         # MT_StepOut
   id     => $new-request-id,
   thread => $thread-id  # e.g. 1
 }
-
 =end code
 
 =head3 Step Completed (23)
@@ -515,7 +467,6 @@ stacktrace after stepping; the C<file> and C<line> keys will be
 of the current location in the topmost frame.
 
 =begin code :lang<raku>
-
 {
   type   => 23,         # MT_StepCompleted
   id     => $given-request-id,
@@ -524,7 +475,6 @@ of the current location in the topmost frame.
     ...
   ]
 }
-
 =end code
 
 =head3 Release Handles (24)
@@ -545,13 +495,11 @@ Responds with an "Operation Successful" message if all specified
 handles were successfully released.
 
 =begin code :lang<raku>
-
 {
   type    => 24,        # MT_ReleaseHandles
   id      => $id,
   handles => @array     #  e.g. [42, 100]
 }
-
 =end code
 
 =head3 Handle Result (25)
@@ -561,13 +509,11 @@ match that of the request.  The value C<0> represents the C<VMNull>
 value.
 
 =begin code :lang<raku>
-
 {
   type   => 25,         # MT_HandleResult
   id     => $given-request-id,
   handle => $integer    # e.g. 42
 }
-
 =end code
 
 =head3 Context Handle (26)
@@ -583,14 +529,12 @@ have the C<MVMContext> REPR.
 Followed by a "Handle Result" response.
 
 =begin code :lang<raku>
-
 {
   type   => 26,         # MT_ContextHandle
   id     => $new-request-id,
   thread => $thread-id    # e.g. 1
   frame  => $frame-index  # e.g. 0
 }
-
 =end code
 
 =head3 Context Lexicals Request (27)
@@ -601,13 +545,11 @@ Request the values of lexicals in a given context, followed by a
 The C<handle> key must be a context handle.
 
 =begin code :lang<raku>
-
 {
   type   => 27,         # MT_ContextLexicalsRequest
   id     => $new-request-id,
   handle => $handle-id  # e.g. 1234
 }
-
 =end code
 
 =head3 Context Lexicals Response (28)
@@ -633,7 +575,6 @@ The C<kind> key may be one of "int", "num", or "str" (for native
 values) or "obj" for objects.
 
 =begin code :lang<raku>
-
 {
   type     => 28,       # MT_ContextLexicalsResponse
   id       => $given-request-id,
@@ -655,7 +596,6 @@ values) or "obj" for objects.
     }
   }
 }
-
 =end code
 
 =head3 Outer Context Request (29)
@@ -666,13 +606,11 @@ handle is being passed, followed by a "Handle Result" response.
 The null handle (C<0>) will be given if there is no outer context.
 
 =begin code :lang<raku>
-
 {
   type   => 29,         # MT_OuterContextRequest
   id     => $new-request-id,
   handle => $handle     # e.g. 1234
 }
-
 =end code
 
 =head3 Caller Context Request (30)
@@ -684,13 +622,11 @@ response.
 The null handle (C<0>) will be given if there is no outer caller.
 
 =begin code :lang<raku>
-
 {
   type   => 30,         # MT_CallerContextRequest
   id     => $new-request-id,
   handle => $handle     # e.g. 1234
 }
-
 =end code
 
 =head3 Code Object Handle (31)
@@ -706,14 +642,12 @@ If there is no high-level code object associated with the frame,
 then the null handle (C<0>) will be given.
 
 =begin code :lang<raku>
-
 {
   type   => 31,         # MT_CodeObjectHandle
   id     => $new-request-id,
   thread => $thread-id,   # e.g. 1
   frame  => $frame-index  # e.g. 0
 }
-
 =end code
 
 =head3 Object Attributes Request (32)
@@ -722,13 +656,11 @@ Request information about the attributes of an object by its
 given handle, followed by an "Object Attributes" response.
 
 =begin code :lang<raku>
-
 {
   type   => 32,         # MT_ObjectAttributesRequest
   id     => $new-request-id,
   handle => $handle     # e.g. 1234
 }
-
 =end code
 
 =head3 Object Attributes Response (33)
@@ -755,7 +687,6 @@ may exist at multiple inheritance levels, an array is returned with
 the debug name of the class at that level with the C<class> key.
 
 =begin code :lang<raku>
-
 {
   type       => 33,     # MT_ObjectAttributesResponse
   id         => $given-request-id,
@@ -777,7 +708,6 @@ the debug name of the class at that level with the C<class> key.
     }
   ]
 }
-
 =end code
 
 =head3 Decontainerize Handle (34)
@@ -799,14 +729,12 @@ Note that breakpoints may be hit and will be fired during this
 operation.
 
 =begin code :lang<raku>
-
 {
   type   => 34,         # MT_DecontainerizeHandle
   id     => $new-request-id,
   thread => $thread-id, # e.g. 1
   handle => $handle     # e.g. 1234
 }
-
 =end code
 
 =head3 Invoke (36)
@@ -830,7 +758,6 @@ Note that breakpoints may be hit and will be fired during this
 operation.
 
 =begin code :lang<raku>
-
 {
   type      => 36,      # MT_Invoke
   id        => $new-request-id,
@@ -848,7 +775,6 @@ operation.
     }
   ]
 }
-
 =end code
 
 =head3 Invoke Result (37)
@@ -866,7 +792,6 @@ about the C<Exception> object instead.
 Object result example:
 
 =begin code :lang<raku>
-
 {
   type      => 37,      # MT_InvokeResult
   id        => $given-request-id,
@@ -877,13 +802,11 @@ Object result example:
   concrete  => $concrete,  # True or False
   container => $container  # True or False
 }
-
 =end code
 
 Native int result example:
 
 =begin code :lang<raku>
-
 {
   type    => 37,        # MT_InvokeResult
   id      => $given-request-id,
@@ -891,13 +814,11 @@ Native int result example:
   kind    => "int",
   value   => 42
 }
-
 =end code
 
 Exception result:
 
 =begin code :lang<raku>
-
 {
   type      => 37,      # MT_InvokeResult
   id        => $given-request-id,
@@ -908,7 +829,6 @@ Exception result:
   concrete  => True,
   container => False
 }
-
 =end code
 
 =head3 Unhandled Exception (38)
@@ -926,7 +846,6 @@ The VM is expected toi still allow operations such as introspecting
 the context, decontainerizing values, and invoking code.
 
 =begin code :lang<raku>
-
 {
   type   => 38,         # MT_UnhandledException
   id     => $given-request-id,
@@ -949,7 +868,6 @@ the context, decontainerizing values, and invoking code.
     }
   ]
 }
-
 =end code
 
 =head3 Object Metadata Request (40)
@@ -965,13 +883,11 @@ Additionally, all objects that have positional, associative, or
 attribute features will point that out in their response.
 
 =begin code :lang<raku>
-
 {
   type   => 40,         # MT_ObjectMetadataRequest
   id     => $new-request-id,
   handle => $handle     # e.g 1345
 }
-
 =end code
 
 =head3 Object Metadata Response (41)
@@ -994,7 +910,6 @@ indicate which of the "Object Positionals Request (42)",
 Request (32)" will give useful results.
 
 =begin code :lang<raku>
-
 {
   type     => 41,       # MT_ObjectMetadataResponse
   id       => $given-request-id,
@@ -1015,7 +930,6 @@ Request (32)" will give useful results.
     attr_features => $attr_features  # True or False
   }
 }
-
 =end code
 
 =head3 Object Positionals Request (42)
@@ -1025,13 +939,11 @@ as an array) indicated by its handle, followed by an "Object
 Positionals" response.
 
 =begin code :lang<raku>
-
 {
   type   => 42,         # MT_ObjectPositionalsRequest
   id     => $new-request-id,
   handle => $handle     # e.g. 12345
 }
-
 =end code
 
 =head3 Object Positionals Response (43)
@@ -1049,7 +961,6 @@ C<handle>, C<concrete>, and C<container> keys, just as in the
 Native contents:
 
 =begin code :lang<raku>
-
 {
   type     => 43,       # MT_ObjectPositionalsResponse
   id       => $given-request-id,
@@ -1059,13 +970,11 @@ Native contents:
     1, 2, 3, 4, 5, 6
   ]
 }
-
 =end code
 
 Object contents:
 
 =begin code :lang<raku>
-
 {
   type     => 43,       # MT_ObjectPositionalsResponse
   id       => $id,
@@ -1086,7 +995,6 @@ Object contents:
     }
   ]
 }
-
 =end code
 
 =head3 Object Associatives Request (44)
@@ -1096,13 +1004,11 @@ as a hash) indicated by its handle, followed by an "Object
 Associatives" response.
 
 =begin code :lang<raku>
-
 {
   type   => 44,         # MT_ObjectAssociativesRequest
   id     => $new-request-id,
   handle => $handle  # e.g. 12376
 }
-
 =end code
 
 =head3 Object Associatives Response (45)
@@ -1116,7 +1022,6 @@ value contains C<type>, C<handle>, C<concrete>, and C<container>
 keys, just as in the "Context Lexicals" response.
 
 =begin code :lang<raku>
-
 {
   type     => 45,       # MT_ObjectAssociativesResponse
   id       => $given-request-id,
@@ -1136,7 +1041,6 @@ keys, just as in the "Context Lexicals" response.
     }
   }
 }
-
 =end code
 
 =head3 Handle Equivalence Request (46)
@@ -1146,13 +1050,11 @@ to see whether they refer to the same object, followed by a
 "Handle Equivalence" response.
 
 =begin code :lang<raku>
-
 {
   type    => 46,        # MT_HandleEquivalenceRequest
   id      => $new-request-id,
   handles => @handles
 }
-
 =end code
 
 =head3 Handle Equivalence Response (47)
@@ -1164,7 +1066,6 @@ which each inner list contains the ID's of handles that refer
 to the same object (if there are more than one).
 
 =begin code :lang<raku>
-
 {
   type    => 47,        # MT_HandleEquivalenceResponse
   id      => $given-request-id,
@@ -1173,7 +1074,6 @@ to the same object (if there are more than one).
     [2, 5, 7]
   ]
 }
-
 =end code
 
 =head3 HLL Symbol Request (48)
@@ -1186,38 +1086,32 @@ a given key.
 Get all HLL names, followed by a "HLL Symbol" response:
 
 =begin code :lang<raku>
-
 {
   type => 48,           # MT_HLLSymbolRequest
   id   => $new-request-id,
 }
-
 =end code
 
 Get an HLL's symbol names, followed by a "HLL Symbol" response:
 
 =begin code :lang<raku>
-
 {
   type => 48,           # MT_HLLSymbolRequest
   id   => $new-request-id,
   HLL  => $HLL          # e.g. "nqp" or "Raku"
 }
-
 =end code
 
 Get the value for a symbol in a HLL, followed by a "Handle Result"
 response:
 
 =begin code :lang<raku>
-
 {
   type => 48,           # MT_HLLSymbolRequest
   id   => $new-request-id,
   HLL  => $HLL          # e.g. "nqp" or "Raku"
   name => "FOOBAR"
 }
-
 =end code
 
 =head3 HLL Symbol Response (49)
@@ -1228,7 +1122,6 @@ The C<keys> key contains either a list of HLL names, or a list
 of names for a given HLL.
 
 =begin code :lang<raku>
-
 {
   type => 49,
   id   => $given-request-id,
@@ -1237,7 +1130,6 @@ of names for a given HLL.
     "two",
   ]
 }
-
 =end code
 
 =head3 Loaded Files Request (50)
@@ -1259,7 +1151,6 @@ With "stacktrace", the notifications will also immediately send a stacktrace
 along for the thread that encounters the new file.
 
 =begin code :lang<raku>
-
 {
     type           => 50,
     id             => $new-request-id,
@@ -1267,7 +1158,6 @@ along for the thread that encounters the new file.
     suspend        => False,
     stacktrace     => False,
 }
-
 =end code
 
 =head3 File Loaded Notification (51)
@@ -1294,7 +1184,6 @@ notification.
 Initial response:
 
 =begin code :lang<raku>
-
 {
     type      => 51,
     id        => $new-request-id,
@@ -1309,13 +1198,11 @@ Initial response:
         },
     ]
 }
-
 =end code
 
 Notification:
 
 =begin code :lang<raku>
-
 {
     type      => 51,
     id        => $given-request-id,
@@ -1325,7 +1212,6 @@ Notification:
     ],
     frames    => [ ... ]
 }
-
 =end code
 
 =head1 MoarVM Remote Debug Protocol Design
@@ -1453,7 +1339,7 @@ with messages.
 
 Copyright 2011 - 2020 Timo Paulssen
 
-Copyright 2021 - 2025 Raku Community
+Copyright 2021 - 2026 Raku Community
 
 This library is free software; you can redistribute it and/or modify it under the Artistic License 2.0.
 

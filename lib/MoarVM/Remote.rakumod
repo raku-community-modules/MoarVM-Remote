@@ -1,6 +1,6 @@
 use Data::MessagePack:ver<0.1.4+>:auth<zef:raku-community-modules>;
 use Data::MessagePack::StreamingUnpacker:ver<0.1.4+>:auth<zef:raku-community-modules>;
-use JSON::Fast:ver<0.19+>:auth<cpan:TIMOTIMO>;
+use JSON::Fast:ver<0.21+>:auth<zef:timo>;
 
 our enum MessageType is export <
     MT_MessageTypeNotUnderstood

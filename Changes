@@ -1,6 +1,10 @@
 Revision history for MoarVM::Remote
 
 {{$NEXT}}
+    - Up dependency on JSON::Fast
+    - Support debug-protocol 1.4 and 1.5
+    - Modernize META and documentation
+    - Update copyright year
 
 0.0.4  2025-06-30T14:20:23+02:00
     - Upped support to protocol level 1.4
